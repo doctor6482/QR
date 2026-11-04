@@ -39,6 +39,7 @@ input{font:inherit;font-size:1.1rem;padding:12px;border:1px solid var(--line);bo
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .me{background:var(--accent-soft);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .me .nm{font-size:1.15rem;font-weight:700}
+.scanbtn{font-size:1.2rem;padding:18px}
 .cam{position:relative;width:100%;aspect-ratio:1;border-radius:16px;overflow:hidden;background:#000}
 .cam video{width:100%;height:100%;object-fit:cover;display:block}
 .cam .frame{position:absolute;inset:16%;border:3px solid #fff;border-radius:14px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
@@ -57,6 +58,13 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .trip{border-top:1px solid var(--line);padding:10px 0;display:flex;flex-direction:column;gap:2px}
 .trip:first-of-type{border-top:0}
 .trip .d{font-weight:700}
+.sec{font-size:.8rem;font-weight:700;letter-spacing:.05em;color:var(--muted);margin-top:4px}
+.trip .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.badge{flex:none;font-size:.8rem;font-weight:700;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.badge.ok{background:var(--ok-soft);color:var(--ok)} .badge.bad{background:var(--bad-soft);color:var(--bad)}
+.badge.warn{background:var(--warn-soft);color:var(--warn)} .badge.mute{background:var(--accent-soft);color:var(--muted)}
+.trip.today{background:var(--accent-soft);border-radius:12px;padding:12px;border-top:0}
+details.pastbox summary{cursor:pointer;color:var(--muted);font-size:.9rem;padding:4px 0}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .field{display:flex;flex-direction:column;gap:4px}
 .linkbtn{all:unset;cursor:pointer;color:var(--accent);font-size:.85rem}
@@ -140,22 +148,49 @@ function showRegister(msg) {
 const val = id => document.getElementById(id).value;
 
 /* ---------- 2. 첫 화면: 카메라가 바로 켜짐 ---------- */
+/* 날짜별 출석 뱃지: 출석(시각) / 결석(지난 날) / 미출석(오늘) / 예정 */
+function badge(t) {
+  if (t.mark) return `<span class="badge ok">출석 ${t.mark.time}${t.mark.how === 'manual' ? ' (선생님 처리)' : ''}</span>`;
+  if (t.date < ME.today) return '<span class="badge bad">결석</span>';
+  if (t.date === ME.today) return '<span class="badge warn">미출석</span>';
+  return '<span class="badge mute">예정</span>';
+}
+function tripHtml(t, today) {
+  return `<div class="trip${today ? ' today' : ''}"><div class="top"><span class="d">${dLabel(t.date)}</span>${badge(t)}</div>
+    <span>${esc(t.name)}</span><span class="sub">${t.place ? '집결 ' + esc(t.place) : ''}${t.teacher ? ' · 인솔 ' + esc(t.teacher) + ' 선생님' : ''}</span>
+    ${t.notice && t.date >= ME.today ? `<div class="notice"><b>유의사항</b>${esc(t.notice)}</div>` : ''}</div>`;
+}
+
 function showHome(note) {
   const trips = ME.trips || [];
+  const today = trips.filter(t => t.date === ME.today);
+  const coming = trips.filter(t => t.date > ME.today);
+  const past = trips.filter(t => t.date < ME.today).reverse();
+  const done = past.filter(t => t.mark).length;
   app.innerHTML = `<div class="panel">${meBox()}
       ${note ? `<div class="result ok"><strong>${esc(note)}</strong></div>` : ''}
-      <div class="cam" id="cam"><video id="vid" playsinline muted autoplay></video><div class="frame"></div>
-        <div class="tip" id="tip">카메라를 켜는 중…</div>
-        <div class="off" id="off" hidden></div></div>
-      <div class="sub">선생님 휴대폰의 QR을 네모 안에 맞추면 바로 출석돼요.</div>
+      ${today.some(t => t.mark) ? `<div class="sub" style="color:var(--ok);font-weight:700">오늘 출석은 이미 완료됐어요 (${today.find(t => t.mark).mark.time})</div>` : ''}
+      <button class="btn scanbtn" id="scanbtn" type="button">QR 찍어 출석하기</button>
+      <div id="camwrap" hidden style="display:flex;flex-direction:column;gap:10px">
+        <div class="cam" id="cam"><video id="vid" playsinline muted autoplay></video><div class="frame"></div>
+          <div class="tip" id="tip">카메라를 켜는 중…</div>
+          <div class="off" id="off" hidden></div></div>
+        <div class="sub">선생님 휴대폰의 QR을 네모 안에 맞추면 바로 출석돼요.</div>
+        <button class="btn ghost" id="camoff" type="button">카메라 끄기</button>
+      </div>
     </div>
     <div class="panel"><h1>우리 반 외부활동</h1>
-      ${trips.length ? trips.map(t => `<div class="trip"><span class="d">${dLabel(t.date)}${t.date === ME.today ? ' · 오늘' : ''}</span>
-        <span>${esc(t.name)}</span><span class="sub">${t.place ? '집결 ' + esc(t.place) : ''}${t.teacher ? ' · 인솔 ' + esc(t.teacher) + ' 선생님' : ''}</span>
-        ${t.notice ? `<div class="notice"><b>유의사항</b>${esc(t.notice)}</div>` : ''}</div>`).join('') : '<div class="sub">예정된 외부활동이 없어요.</div>'}
+      <div class="sec">오늘</div>
+      ${today.length ? today.map(t => tripHtml(t, true)).join('') : '<div class="sub">오늘은 외부활동이 없어요.</div>'}
+      <div class="sec">앞으로의 활동</div>
+      ${coming.length ? coming.map(t => tripHtml(t)).join('') : '<div class="sub">예정된 외부활동이 없어요.</div>'}
+      ${past.length ? `<details class="pastbox"><summary>지난 활동 ${past.length}개 · 출석 ${done} / 결석 ${past.length - done}</summary>${past.map(t => tripHtml(t)).join('')}</details>` : ''}
     </div>
     <div class="sub" style="text-align:center">이 페이지를 홈 화면에 추가해 두면 앱처럼 바로 열 수 있어요.</div>`;
-  startCamera();
+  // 카메라는 버튼을 눌렀을 때만 켬
+  const wrap = document.getElementById('camwrap'), btn = document.getElementById('scanbtn');
+  btn.onclick = () => { btn.hidden = true; wrap.hidden = false; startCamera(); wrap.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
+  document.getElementById('camoff').onclick = () => { stopCamera(); wrap.hidden = true; btn.hidden = false; };
 }
 
 /* ---------- 카메라로 QR 읽기 ---------- */
@@ -234,16 +269,25 @@ async function checkIn(a, t) {
     </div>
     ${r.notice ? `<div class="notice"><b>오늘의 유의사항</b>${esc(r.notice)}</div>` : ''}
     <button class="btn ${r.k === 'bad' ? '' : 'ghost'}" id="again" type="button">${r.k === 'bad' ? 'QR 다시 찍기' : '처음 화면으로'}</button></div>`;
-  document.getElementById('again').onclick = () => showHome();
+  document.getElementById('again').onclick = () => history.back();
+  history.pushState({ v: 'result' }, '');   // 휴대폰 뒤로가기 → 활동 목록으로
   // 화면 캡처를 돌려쓰지 못하도록 현재 시각이 계속 움직임
   const c = document.getElementById('clock');
   if (c) { const f = () => { if (document.getElementById('clock')) c.textContent = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }; f(); setInterval(f, 1000); }
 }
 
+/* 출석 결과 화면에서 뒤로가기 → 활동 목록(출석 뱃지 새로 반영) */
+async function backHome() {
+  app.innerHTML = `<div class="panel">${ME ? meBox() : ''}<div class="sub">불러오는 중…</div></div>`;
+  try { ME = (await api('whoami', { dev: DEV })) || ME; } catch (e) {}
+  if (ME) showHome(); else showRegister();
+}
+window.addEventListener('popstate', () => { if (!document.getElementById('scanbtn')) backHome(); });
+
 /* 다른 화면으로 가면 카메라 끄기 (배터리 절약) */
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopCamera();
-  else if (document.getElementById('cam') && !STREAM && ME) startCamera();
+  else { const w = document.getElementById('camwrap'); if (w && !w.hidden && !STREAM && ME) startCamera(); }   // 켜 둔 상태였을 때만 다시 켬
 });
 
 /* ---------- 시작 ---------- */
