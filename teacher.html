@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- ↓ 카톡 미리보기 제목·설명, 홈 화면 아이콘 이름 -->
+<meta name="apple-mobile-web-app-title" content="수능 후 출석체크(교사용)">
+<meta property="og:title" content="수능 후 출석체크(교사용)">
+<meta property="og:description" content="교사코드를 넣고 내 이름을 고르세요">
+<title>수능 후 출석체크(교사용)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#eef1ef; --surface:#ffffff; --ink:#18302a; --muted:#5d7069; --line:#d3dbd7;
+  --accent:#0f6b55; --accent-soft:#dcefe8; --ok:#1d7a3e; --ok-soft:#e0f3e6;
+  --warn:#a3570c; --warn-soft:#fbecd9; --bad:#b3261e; --bad-soft:#fbe3e1;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#111816; --surface:#1a2421; --ink:#e3ece8; --muted:#97aaa3; --line:#2e3d38;
+  --accent:#4fc3a1; --accent-soft:#183a31; --ok:#6bd08c; --ok-soft:#173426;
+  --warn:#f0a959; --warn-soft:#3a2a17; --bad:#f28b82; --bad-soft:#3d1f1d; color-scheme:dark}}
+/* 해산 체크 화면은 파란 계열 (집결은 초록 계열) */
+body.ph-out{--accent:#2f4fc4;--accent-soft:#e2e8fb;--ok:#2a47b3;--ok-soft:#e4e9fb}
+@media (prefers-color-scheme: dark){body.ph-out{--accent:#8ea4ff;--accent-soft:#1e2647;--ok:#9db0ff;--ok-soft:#1d2444}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}   /* 숨긴 칸은 다른 스타일과 상관없이 항상 숨김 */
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;padding:16px}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font-size:1.25rem;margin:0}
+h2{font-size:1.05rem;margin:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.label{font-size:.75rem;letter-spacing:.06em;color:var(--muted);font-weight:500}
+.sub{font-size:.82rem;color:var(--muted)}
+input{font:inherit;font-size:1.1rem;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);width:100%}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:.88rem;padding:7px 11px;border-radius:8px;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.btn.big{font-size:1rem;padding:13px;width:100%;text-align:center}
+.btn:disabled{opacity:.5}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.upday{border-top:1px solid var(--line);padding:12px 0;display:flex;flex-direction:column;gap:6px}
+.upday:first-of-type{border-top:0}
+.upday .when{font-weight:700}
+.upact{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;align-items:start;padding-left:10px;border-left:3px solid var(--accent-soft)}
+.upact .info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.upact .openbtn{width:118px;text-align:center}
+.upact .extra,.act .extra{grid-column:1/-1;display:flex;flex-direction:column;gap:2px;white-space:pre-line}
+.upact .sub{white-space:pre-line}
+.qrbig{position:fixed;inset:0;z-index:30;background:#fff;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;text-align:center}
+.qrbig[hidden]{display:none}
+.qrbig #qrbigbox img,.qrbig #qrbigbox canvas{width:min(86vw,72vh)!important;height:min(86vw,72vh)!important}
+.qrbig .big-t{font-size:1.2rem;font-weight:700}
+.qrbig .big-s{font-size:1rem;color:#444}
+.qrbig button{font:inherit;font-size:1rem;padding:12px 20px;border-radius:10px;border:1px solid #bbb;background:#fff;color:#111}
+.mx-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;max-height:70vh;overflow-y:auto}
+.mx{border-collapse:separate;border-spacing:0;font-size:.86rem;min-width:100%}
+.mx th,.mx td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap;background:var(--surface)}
+.mx thead th{position:sticky;top:0;z-index:2;vertical-align:bottom;font-weight:500;color:var(--muted);border-bottom:2px solid var(--line)}
+.mx .c-num{position:sticky;left:0;z-index:1;width:34px;color:var(--muted);font-family:var(--f-mono)}
+.mx .c-name{position:sticky;left:34px;z-index:1;text-align:left;font-weight:500;border-right:1px solid var(--line)}
+.mx thead .c-num,.mx thead .c-name{z-index:3}
+.mx .d{font-weight:700;color:var(--ink)}
+.mx .an{max-width:110px;overflow:hidden;text-overflow:ellipsis;font-size:.74rem}
+.mx .cnt{font-size:.74rem;font-family:var(--f-mono)}
+.mx .today{background:var(--accent-soft)}
+.mx .fut{color:var(--muted)}
+.mx .t{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.mx .t.man::after{content:"*";color:var(--warn);font-weight:700}
+.mx .x{color:var(--bad);font-weight:700}
+.mx tr:hover td{background:var(--bg)}
+.mx tr:hover td.today{background:var(--accent-soft)}
+.cvsum{font-size:.88rem}
+.cvsum strong{color:var(--bad)}
+.cvrow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 2px;border-top:1px solid var(--line);font-size:.92rem}
+.cvrow.absent .nm{color:var(--bad);font-weight:700}
+.cvrow .t{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.cvtoggle{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%}
+.cvtoggle h2{margin:0}
+.cvtoggle .arrow{font-size:1.1rem;color:var(--muted);transition:transform .15s}
+.cvtoggle[aria-expanded="true"] .arrow{transform:rotate(90deg)}
+.cvtoggle:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:6px}
+.cvhead{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.cvsel{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cvsel select{font:inherit;font-size:.95rem;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.cvact{display:flex;flex-direction:column;gap:6px;border-top:2px solid var(--accent-soft);padding-top:10px}
+.loadbar{height:6px;background:var(--accent-soft);border-radius:99px;overflow:hidden}
+.loadbar>i{display:block;height:100%;width:30%;background:var(--accent);border-radius:99px;animation:slide 1.2s ease-in-out infinite}
+@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(340%)}}
+.phprog{display:flex;gap:10px;align-items:center;font-size:.85rem;color:var(--muted)}
+.phprog .bar{flex:1}
+.boardtop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+@media (prefers-reduced-motion:reduce){.loadbar>i{animation:none;width:100%}}
+.clsb{display:inline-block;background:var(--accent);color:#fff;font-weight:700;border-radius:6px;padding:1px 8px;margin:2px 4px 2px 0;font-size:.92rem}
+.clsb small{font-weight:500;opacity:.9}
+.note{background:var(--warn-soft);color:var(--ink);border-radius:8px;padding:6px 8px;font-size:.86rem;margin-top:4px;white-space:pre-line}
+.note b{color:var(--warn);font-size:.76rem;margin-right:4px}
+.linkbtn{all:unset;cursor:pointer;color:var(--accent);font-size:.82rem;margin-top:4px;display:inline-block}
+.notebtn{display:inline-block;margin-top:6px;border:1px solid var(--warn);background:var(--surface);color:var(--warn);font:inherit;font-size:.82rem;font-weight:700;padding:4px 10px;border-radius:8px;cursor:pointer}
+.notebtn:hover{background:var(--warn-soft)}
+.linkbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.noteedit{grid-column:1/-1;background:var(--bg);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.noteedit .rowck{display:flex;gap:8px;align-items:center;justify-content:flex-start;font-size:.9rem;text-align:left}
+.noteedit .rowck input{width:20px;height:20px;flex:0 0 auto;margin:0}
+.noteedit .rangebox{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.noteedit .rangebox label{display:flex;gap:6px;align-items:center;font-size:.9rem;white-space:nowrap}
+.noteedit .rangebox input{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+.noteedit .rangebox .sub{flex-basis:100%}
+.note .rng{font-weight:500;font-size:.8rem;color:var(--muted);margin-left:4px}
+.noteedit textarea{font:inherit;font-size:.95rem;padding:8px;border:1px solid var(--line);border-radius:8px;min-height:64px;background:var(--surface);color:var(--ink)}
+.clschips{display:flex;gap:8px;flex-wrap:wrap}
+.clschip{border:2px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:700;padding:8px 14px;border-radius:10px;cursor:pointer}
+.clschip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:#fff}
+.clschip small{font-weight:500;margin-left:4px}
+.notice{background:var(--warn-soft);color:var(--ink);border-radius:10px;padding:10px 12px;white-space:pre-line;font-size:.9rem;text-align:left}
+.notice b{color:var(--warn);display:block;font-size:.78rem;letter-spacing:.04em;margin-bottom:2px}
+.err{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:10px 12px;font-size:.9rem}
+.acts-list{display:flex;flex-direction:column;gap:8px}
+.act{display:grid;grid-template-columns:minmax(0,1fr) 118px;gap:12px;align-items:start;text-align:left;width:100%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;border-radius:12px;padding:14px;cursor:pointer}
+.act:hover{border-color:var(--accent)}
+.top{display:flex;flex-wrap:nowrap;justify-content:space-between;gap:12px;align-items:flex-start}
+.top>div:first-child{flex:1 1 auto;min-width:0}
+.top>div:last-child{flex:0 0 auto;margin-left:auto}
+@media (max-width:380px){.count{font-size:1.4rem}}
+.count{font-family:var(--f-mono);font-size:1.7rem;font-variant-numeric:tabular-nums}
+.count small{font-size:.9rem;color:var(--muted)}
+.qrrow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:center}
+.qrbox{background:#fff;padding:12px;border-radius:12px;border:1px solid var(--line);width:244px;height:244px;display:grid;place-items:center}
+.qrbox img,.qrbox canvas{width:220px!important;height:220px!important}
+.bar{height:8px;background:var(--accent-soft);border-radius:99px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent);transition:width .9s linear}
+.live{border-radius:12px;padding:14px;background:var(--ok-soft);color:var(--ok);display:flex;gap:14px;align-items:center;min-height:84px}
+.live.idle{background:var(--accent-soft);color:var(--muted)}
+.live.flash{animation:pop .6s ease}
+@keyframes pop{0%{transform:scale(.97)}60%{transform:scale(1.015)}100%{transform:scale(1)}}
+.live .who{font-size:1.2rem;font-weight:700;color:var(--ink)}
+.live .who{word-break:keep-all}
+@media (max-width:540px){.live .who{font-size:1.08rem}}
+@media (max-width:380px){.live .who{font-size:1rem}.live .ph.lg{width:96px;height:128px}.live{gap:10px;padding:12px}}
+.live .when{font-family:var(--f-mono);font-size:.85rem}
+.moved{max-width:760px;margin:0 auto 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:10px 12px;font-size:.88rem}
+.moved .btn{flex:none;text-decoration:none}
+.phase{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg);padding:5px;border-radius:12px}
+.phase button{font:inherit;border:0;border-radius:9px;padding:10px 6px;background:transparent;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+.phase button b{font-size:1rem}
+.phase button small{font-family:var(--f-mono);font-size:.8rem}
+.phase button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.phase button[aria-pressed="true"] b{color:var(--accent)}
+.phase button[data-ph="해산"] b{color:#2f4fc4}
+.phase button[data-ph="집결"] b{color:#0f6b55}
+@media (prefers-color-scheme: dark){.phase button[data-ph="해산"] b{color:#8ea4ff}.phase button[data-ph="집결"] b{color:#4fc3a1}}
+.phase button[aria-pressed="false"]{opacity:.75}
+.bulkbar:empty{display:none}
+.bulkbar{margin:6px 0}
+.bulkgo{width:100%}
+.bulkon{display:flex;flex-direction:column;gap:8px;background:var(--bg);border-radius:10px;padding:10px;position:sticky;top:0;z-index:5}
+.bulkbtns{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:6px}
+.bulkbtns .btn{padding-left:4px;padding-right:4px;font-size:.88rem}
+.bulkdo{width:100%;font-size:1.05rem;padding:12px}
+.roster li.pick{cursor:pointer;border-radius:10px}
+.roster li.pick.on{background:var(--accent-soft, #e3f2ec)}
+.roster li.pick .ck{width:30px;height:30px;border:2px solid var(--line);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;background:var(--surface)}
+.roster li.pick.on .ck{background:var(--accent);border-color:var(--accent)}
+.tag.warn{display:inline-block;font-size:.75rem;padding:1px 6px;border-radius:6px;background:var(--warn-soft);color:var(--warn)}
+.qroff{display:flex;flex-direction:column;align-items:stretch;gap:8px;text-align:center}
+.qrmake{font-size:1.1rem;padding:14px 26px;width:100%;text-align:center}
+.btn.undo{font-size:.8rem;padding:6px 10px}
+.acts .pill{text-align:center}
+.btn.undo.ask{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+.ph{width:60px;height:80px;border-radius:8px;object-fit:cover;object-position:center top;display:block;background:var(--accent-soft);flex:none}
+img.ph{cursor:zoom-in}
+.ph.lg{width:120px;height:160px;border-radius:12px}
+.phview{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;cursor:zoom-out}
+.phview[hidden]{display:none}
+.phview img{width:min(80vw,420px);aspect-ratio:3/4;object-fit:cover;object-position:center top;border-radius:14px;background:#222}
+.phview div{color:#fff;font-size:1.4rem;font-weight:700}
+.noph{display:grid;place-items:center;font-weight:700;color:var(--accent);font-size:.9rem}
+.ph.lg.noph{font-size:1.4rem}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;font-size:.9rem;padding:6px 12px;border-radius:999px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:700}
+ul.roster{list-style:none;margin:0;padding:0}
+ul.roster li{display:grid;grid-template-columns:60px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 2px;border-top:1px solid var(--line)}
+.nm{font-weight:500}
+.cls{font-family:var(--f-mono);font-size:.82rem;color:var(--muted)}
+.acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.pill{font-size:.75rem;padding:2px 8px;border-radius:99px;font-weight:700}
+.pill.qr{background:var(--ok-soft);color:var(--ok)} .pill.manual{background:var(--warn-soft);color:var(--warn)}
+.msg{grid-column:1/-1;background:var(--bg);border-radius:10px;padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.ccard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.tel{font-family:var(--f-mono);font-size:1.05rem;user-select:all}
+.ccard pre{margin:0;white-space:pre-wrap;font-family:var(--f-body);font-size:.86rem}
+.empty{color:var(--muted);padding:14px 2px;border-top:1px solid var(--line)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+@media (max-width:540px){
+  .qrrow{grid-template-columns:minmax(0,1fr);justify-items:center}
+  .timer{width:100%}
+  ul.roster li{grid-template-columns:60px minmax(0,1fr) auto;gap:10px}
+  ul.roster li .acts{flex-direction:column;align-items:stretch;gap:6px}
+  ul.roster li .acts .btn{padding:6px 10px;font-size:.84rem;text-align:center}
+}
+@media (prefers-reduced-motion:reduce){.live.flash{animation:none}.bar>i{transition:none}}
+</style>
+</head>
+<body>
+<div class="moved" id="moved" hidden></div>
+<div class="wrap" id="app">
+  <div class="panel"><div class="sub">불러오는 중…</div></div>
+</div>
+
+<script>
+const APP_URL = 'https://script.google.com/macros/s/AKfycbwho6aL77GdMX4gx_tcGcEvmH8DDEmfhuzpa-UZTceTLgmT6tBxSWPOkPfPFPPx0HkvJA/exec';
+/* 새 선생님 화면(GitHub) 주소 — 이 화면(구글 주소)도 그대로 쓸 수 있고, 위쪽에 새 주소만 안내 */
+const NEW_TEACHER_URL = '';   // GitHub 화면에서는 안내 안 함
+(() => {
+  const m = document.getElementById('moved');
+  if (!NEW_TEACHER_URL || !m) return;
+  m.innerHTML = `<span>선생님 화면 <b>새 주소</b>가 생겼어요. 구글 계정 오류("파일을 열 수 없습니다") 없이 열려요.</span><a class="btn primary" href="${NEW_TEACHER_URL}" target="_top" rel="noopener">새 주소로 열기</a>`;
+  m.hidden = false;
+})();
+const KEY = 'qr_att_teacher_code';
+let CODE = '', WHO = '', ROSTER = null, ACT = null, LOG = {}, TOKEN = '', deadline = 0, rotate = 20;
+let listMode = 'absent', openMsg = null, lastSeen = null, pollTimer = null, tickTimer = null;
+let NOTES = {}, noteOpen = null, clsFilter = 'all';
+let SEEN = new Set(), liveId = null, qrOn = false, undoAsk = null;   // qrOn: [QR 만들기]를 눌러야 QR이 보임
+/* 집결(아침에 모일 때) / 해산(끝나고 집에 갈 때) — 두 번 확인 */
+let PHASE = '집결', LOGS = { 집결: {}, 해산: {} }, TOKENS = { 집결: '', 해산: '' };
+let BULK = false, BULKSEL = new Set();   // 수동 체크
+const phaseKey = () => 'qr_att_phase_' + (ACT ? ACT.sid : '');
+function savePhase() { try { localStorage.setItem(phaseKey(), PHASE); } catch (e) {} }
+function loadPhase() { try { return localStorage.getItem(phaseKey()) === '해산' ? '해산' : '집결'; } catch (e) { return '집결'; } }
+let MSG = null;   // 연락 문자 틀 (관리자 설정)
+
+const app = document.getElementById('app');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const API = 'https://script.google.com/macros/s/AKfycbwho6aL77GdMX4gx_tcGcEvmH8DDEmfhuzpa-UZTceTLgmT6tBxSWPOkPfPFPPx0HkvJA/exec';
+/* GitHub Pages에서는 구글 시트와 이 주소로 주고받음 (Apps Script 화면의 google.script.run과 같은 역할) */
+const call = async (fn, ...args) => {
+  let res;
+  try { res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: 'rpc', name: fn, args }) }); }
+  catch (e) { throw new Error('인터넷 연결을 확인해 주세요.'); }
+  let j;
+  try { j = await res.json(); } catch (e) { throw new Error('서버 응답을 읽지 못했어요. 잠시 후 다시 해 주세요.'); }
+  if (!j.ok) throw new Error(j.error || '처리하지 못했어요.');
+  return j.data;
+};
+const errText = e => (e && e.message ? e.message : String(e)).replace(/^Error:\s*/, '').replace(/^Exception:\s*/, '');
+const store = { get(){ try { return localStorage.getItem(KEY) || ''; } catch(e){ return ''; } },
+                set(v){ try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch(e){} } };
+const hhmm = ms => new Date(ms).toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+const hm = ms => { const d = new Date(ms); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };   // 14:05
+const clsLabel = s => s.grade + '-' + s.cls;
+const photoHtml = (s, big) => s.photo
+  ? `<img class="ph${big ? ' lg' : ''}" src="${s.photo}" alt="${esc(s.name)} 사진">`
+  : `<div class="ph noph${big ? ' lg' : ''}" aria-hidden="true">${esc(s.name.slice(-2))}</div>`;
+const digits = t => String(t || '').replace(/[^0-9+]/g, '');
+const clsBadges = (cs, acts) => cs.map(k => `<span class="clsb">${k.replace('-', '학년 ')}반${acts && acts[k] ? ` <small>${esc(acts[k])}</small>` : ''}</span>`).join('');
+
+/* ---------- 사진을 이 휴대폰에 저장 ----------
+   한 번 받은 사진은 휴대폰(IndexedDB)에 남겨 두고, 다음부터는 서버에 "이 사진은 있어요"라고만 알려 줌
+   → 서버는 없는 사진만 보냄. 사진이 바뀌면 버전이 달라져서 새로 받음 */
+const PHOTO_MEM = {};   // 학번 → {ver, data}
+const PDB = (() => {
+  let dbp = null;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    try { const q = indexedDB.open('qr_att', 1); q.onupgradeneeded = () => q.result.createObjectStore('ph'); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }
+    catch (e) { rej(e); }
+  }));
+  return {
+    async loadAll() {
+      try {
+        const db = await open();
+        return await new Promise(res => {
+          const out = {}, q = db.transaction('ph').objectStore('ph').openCursor();
+          q.onsuccess = () => { const c = q.result; if (c) { out[c.key] = c.value; c.continue(); } else res(out); };
+          q.onerror = () => res(out);
+        });
+      } catch (e) { return {}; }
+    },
+    async put(id, v) { try { (await open()).transaction('ph', 'readwrite').objectStore('ph').put(v, id); } catch (e) {} },
+  };
+})();
+const photoReady = PDB.loadAll().then(m => { Object.assign(PHOTO_MEM, m); }).catch(() => {});
+function havePhotos() { const o = {}; Object.keys(PHOTO_MEM).forEach(id => { if (PHOTO_MEM[id] && PHOTO_MEM[id].ver) o[id] = PHOTO_MEM[id].ver; }); return o; }
+function takePhotos(list) {
+  (list || []).forEach(s => {
+    if (s.photo) { PHOTO_MEM[s.id] = { ver: s.ver || '', data: s.photo }; PDB.put(s.id, PHOTO_MEM[s.id]); }
+    else if (PHOTO_MEM[s.id] && (!s.ver || PHOTO_MEM[s.id].ver === s.ver)) s.photo = PHOTO_MEM[s.id].data;
+  });
+}
+
+/* ---------- 특이사항 입력 칸 (출석 화면·반별 현황 공용) ---------- */
+function noteHtml(note, id, canEdit) {
+  const rg = note && note.range ? note.range.split('~').map(d => d.slice(5).replace('-', '/').replace(/^0/, '').replace('/0', '/')).join('~') : '';
+  return `${note ? `<div class="note"><b>특이사항${rg ? ` <span class="rng">${esc(rg)}</span>` : ''}</b>${esc(note.text)}${note.by ? ` <span class="sub">— ${esc(note.by)}</span>` : ''}</div>` : ''}
+    ${canEdit ? `<div><button class="notebtn" type="button" data-note="${id}">${note ? '특이사항 수정' : '특이사항 입력'}</button></div>` : ''}`;
+}
+function noteEditor(s, note, date, onDone) {
+  const box = document.createElement('div');
+  box.className = 'noteedit';
+  const rg = note && note.range ? note.range.split('~') : null;
+  box.innerHTML = `<label class="label" for="ne${s.id}">${esc(s.name)} · ${date.slice(5).replace('-', '/')} 특이사항</label>
+    <textarea id="ne${s.id}" maxlength="300" placeholder="예: 병원 진료로 결석 예정(담임 확인), 10시에 현장 합류"></textarea>
+    <label class="rowck"><input type="checkbox" data-nr ${rg ? 'checked' : ''}> 여러 날 계속돼요 (기간으로 입력)</label>
+    <div class="rangebox" data-rb ${rg ? '' : 'hidden'}>
+      <label>시작 <input type="date" data-nf value="${rg ? rg[0] : date}"></label>
+      <label>끝 <input type="date" data-nt value="${rg ? rg[1] : addDay(date, 2)}"></label>
+      <div class="sub">이 기간의 모든 날짜에 같은 특이사항이 들어가요. (최대 31일)</div>
+    </div>
+    <div class="row"><button class="btn primary" type="button" data-ns>저장</button>${note ? (rg ? '<button class="btn" type="button" data-nd>기간 전체 지우기</button><button class="btn" type="button" data-n1>이 날만 지우기</button>' : '<button class="btn" type="button" data-nd>지우기</button>') : ''}<button class="btn" type="button" data-nc>취소</button></div>`;
+  const ta = box.querySelector('textarea'); ta.value = note ? note.text : '';
+  const ck = box.querySelector('[data-nr]'), rb = box.querySelector('[data-rb]');
+  ck.onchange = () => { rb.hidden = !ck.checked; };
+  const save = async (text, onlyDay) => {
+    const opt = { oldRange: note && note.range ? note.range : '', onlyDay: !!onlyDay };
+    if (text && ck.checked) {
+      opt.from = box.querySelector('[data-nf]').value; opt.to = box.querySelector('[data-nt]').value;
+      if (!opt.from || !opt.to) { alertBox(box, '시작 날짜와 끝 날짜를 골라 주세요.'); return; }
+      if (opt.to < opt.from) { alertBox(box, '끝 날짜가 시작 날짜보다 앞이에요.'); return; }
+    }
+    box.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    try { onDone(await call('teacherSaveNote', CODE, WHO, date, s.id, text, opt)); }
+    catch (e) { alertBox(box, errText(e)); box.querySelectorAll('button').forEach(b => { b.disabled = false; }); }
+  };
+  box.querySelector('[data-ns]').onclick = () => save(ta.value);
+  const del = box.querySelector('[data-nd]'); if (del) del.onclick = () => save('');
+  const d1 = box.querySelector('[data-n1]'); if (d1) d1.onclick = () => save('', true);
+  box.querySelector('[data-nc]').onclick = () => onDone(null);
+  setTimeout(() => ta.focus(), 50);
+  return box;
+}
+function addDay(d, n) { const t = new Date(d + 'T12:00:00'); t.setDate(t.getDate() + n); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); }
+function alertBox(box, msg) { let e = box.querySelector('.err'); if (!e) { e = document.createElement('div'); e.className = 'err'; box.prepend(e); } e.textContent = msg; }
+
+/* ---------- 1. 로그인: 공용 교사코드 → 내 이름 고르기 ---------- */
+function showLogin(msg) {
+  document.body.classList.remove('ph-out');
+  stopTimers();
+  app.innerHTML = `<div class="panel">
+    <h1>QR 출석 · 선생님</h1>
+    <div class="sub">교사코드를 입력하고 내 이름을 고르세요. 이 휴대폰에 기억돼서 다음부터는 바로 열려요.</div>
+    ${msg ? `<div class="err">${esc(msg)}</div>` : ''}
+    <form id="f" style="display:flex;flex-direction:column;gap:10px">
+      <label class="label" for="code">교사코드</label>
+      <input id="code" inputmode="numeric" autocomplete="off" required>
+      <button class="btn primary big" type="submit">다음</button>
+    </form></div>`;
+  document.getElementById('f').onsubmit = e => { e.preventDefault(); pickName(document.getElementById('code').value.trim()); };
+}
+
+async function pickName(code) {
+  app.innerHTML = '<div class="panel"><div class="sub">확인하는 중…</div></div>';
+  let names;
+  try { names = await call('teacherNames', code); }
+  catch (e) { showLogin(errText(e)); return; }
+  app.innerHTML = `<div class="panel">
+    <h1>내 이름을 고르세요</h1>
+    <input id="nq" placeholder="이름 검색" autocomplete="off">
+    <div class="acts-list" id="names"></div>
+    <button class="btn" id="back">교사코드 다시 입력</button></div>`;
+  const box = document.getElementById('names');
+  const draw = q => {
+    box.innerHTML = '';
+    names.filter(n => !q || n.includes(q)).forEach(n => {
+      const b = document.createElement('button');
+      b.className = 'act'; b.type = 'button';
+      b.innerHTML = `<strong>${esc(n)} 선생님</strong><span class="btn primary">선택</span>`;
+      b.onclick = () => login(code, n);
+      box.appendChild(b);
+    });
+    if (!box.children.length) box.innerHTML = '<div class="empty">검색 결과가 없어요.</div>';
+  };
+  draw('');
+  document.getElementById('nq').oninput = e => draw(e.target.value.trim());
+  document.getElementById('back').onclick = () => showLogin();
+}
+
+async function login(code, name) {
+  app.innerHTML = '<div class="panel"><div class="sub">확인하는 중…</div></div>';
+  try {
+    const r = await call('teacherLogin', code, name);
+    CODE = code; WHO = name; store.set(JSON.stringify({ code, name }));
+    if (r.msg) MSG = r.msg;
+    showActivities(r);
+    window.scrollTo(0, 0);
+  } catch (e) { store.set(''); showLogin(errText(e)); }
+}
+
+/* ---------- 2. 활동 고르기 ---------- */
+function showActivities(r) {
+  document.body.classList.remove('ph-out');
+  stopTimers();
+  const today = new Date().toLocaleDateString('ko-KR', {month:'long', day:'numeric', weekday:'short'});
+  const clsText = (cs, acts) => cs.map(k => k.replace('-', '학년 ') + '반' + (acts && acts[k] ? ' · ' + acts[k] : '')).join(', ');
+  app.innerHTML = `<div class="panel">
+    <div class="row"><div><div class="label">${esc(r.school)}</div><h1>${esc(r.name)} 선생님</h1></div>
+      <button class="btn" id="out">다른 선생님으로</button></div>
+    ${r.testMode ? `<div class="notice"><b>테스트 모드</b>날짜와 관계없이 아래 일정을 열어 QR을 시험할 수 있어요. 미리 찍은 기록은 실제 출석에 들어가지 않아요.</div>` : ''}
+    <div class="label">${today} 오늘 인솔 · 눌러서 집결·해산 체크를 시작해요</div>
+    <div class="acts-list" id="list"></div></div>
+  <div class="panel">
+    <button class="cvtoggle" id="cvtg" type="button" aria-expanded="false" aria-controls="cvbody">
+      <span><h2>반별 출석 현황 <span class="sub" id="cvhint" style="font-weight:400">(눌러서 펼치기)</span></h2><span class="sub">담임은 교내에서 우리 반 출석을 여기서 확인해요</span></span><span class="arrow" aria-hidden="true">▶</span></button>
+    <div id="cvbody" hidden style="display:flex;flex-direction:column;gap:12px">
+    <div class="cvsel">
+      <select id="cvc" aria-label="반">${(r.classes || []).map(k => `<option value="${k}">${k.replace('-', '학년 ')}반${(r.homeroom || []).includes(k) ? ' (우리 반)' : ''}</option>`).join('')}</select>
+      <select id="cvd" aria-label="날짜"><option>불러오는 중…</option></select>
+      <button class="btn" id="cvr" type="button">새로고침</button>
+    </div>
+    <div id="cv"><div class="sub">불러오는 중…</div></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>앞으로의 인솔 일정</h2>
+    <div id="upcoming"></div>
+    <div class="sub">일정이 다르거나 빠져 있으면 관리자에게 알려 주세요. 당일이 되면 위쪽에서 열 수 있어요.</div></div>`;
+  document.getElementById('out').onclick = () => { store.set(''); CODE = ''; WHO = ''; showLogin(); };
+  const list = document.getElementById('list');
+  const DOW = ['일','월','화','수','목','금','토'];
+  const dLabel = d => { const x = new Date(d + 'T12:00:00'); return `${x.getMonth() + 1}월 ${x.getDate()}일 (${DOW[x.getDay()]})`; };
+  const up = document.getElementById('upcoming');
+  const byDate = {};
+  (r.upcoming || []).forEach(a => (byDate[a.date] = byDate[a.date] || []).push(a));
+  up.innerHTML = Object.keys(byDate).map(d => `<div class="upday"><div class="when">${dLabel(d)}</div>
+    ${byDate[d].map(a => `<div class="upact"><div class="info"><strong>${esc(a.name)}</strong>
+      <div>${clsBadges(a.classes, a.acts)}</div>
+      <span class="sub">${a.place ? '집결 ' + esc(a.place) : ''}</span></div>
+      ${r.testMode ? `<button class="btn openbtn" type="button" data-test="${esc(a.sid)}">열기 (테스트)</button>` : '<span></span>'}
+      ${(a.others && a.others.length) || a.notice ? `<div class="extra">${a.others && a.others.length ? `<span class="sub">함께 가는 선생님 ${esc(a.others.join(', '))}</span>` : ''}${a.notice ? `<span class="sub">유의사항: ${esc(a.notice)}</span>` : ''}</div>` : ''}</div>`).join('')}</div>`).join('')
+    || '<div class="empty">앞으로 맡은 일정이 없어요.</div>';
+  up.querySelectorAll('[data-test]').forEach(b => b.onclick = () => openActivity(b.dataset.test));
+  // 오늘 활동 → 앞으로의 일정 순서로 명단·사진을 미리 받아 둠 (사진은 휴대폰에 저장)
+  prefetchAll([...(r.activities || []), ...(r.upcoming || []).slice(0, 6)].map(a => a.sid))
+    .then(() => { const k = (r.homeroom || [])[0] || (r.classes || [])[0]; if (k && CODE) CVPRE = { cls: k, t: Date.now(), p: call('teacherClassView', CODE, WHO, k, '', true).catch(() => null) }; });
+  // 반별 출석 현황: 접혀 있다가 누르면 펼치고, 처음 펼칠 때 불러옴
+  let cvStarted = false;
+  const tg = document.getElementById('cvtg'), body = document.getElementById('cvbody');
+  tg.onclick = () => {
+    const open = tg.getAttribute('aria-expanded') !== 'true';
+    tg.setAttribute('aria-expanded', open); body.hidden = !open;
+    document.getElementById('cvhint').textContent = open ? '(눌러서 접기)' : '(눌러서 펼치기)';
+    if (open && !cvStarted) { cvStarted = true; initClassView(r, dLabel); }
+    else if (!open) { clearInterval(cvTimer); cvTimer = null; }
+    else if (open && cvStarted) { const rb = document.getElementById('cvr'); if (rb) rb.click(); }
+  };
+  if (!r.activities.length) { list.innerHTML = '<div class="empty">오늘 맡은 활동이 없어요.</div>'; return; }
+  r.activities.forEach(a => {
+    const b = document.createElement('button');
+    b.className = 'act';
+    b.innerHTML = `<span><strong>${esc(a.name)}</strong><br>${clsBadges(a.classes, a.acts)}<br><span class="sub">${a.place ? '집결 ' + esc(a.place) : ''}</span></span><span class="btn primary" style="text-align:center">열기</span>${(a.others && a.others.length) || a.notice ? `<span class="extra">${a.others && a.others.length ? `<span class="sub">함께 가는 선생님 ${esc(a.others.join(', '))}</span>` : ''}${a.notice ? `<span class="sub">유의사항: ${esc(a.notice)}</span>` : ''}</span>` : ''}`;
+    b.onclick = () => openActivity(a.sid);
+    list.appendChild(b);
+  });
+}
+
+/* ---------- 사진 크게 보기: 사진을 누르면 화면 가득 ---------- */
+document.addEventListener('click', e => {
+  const im = e.target.closest && e.target.closest('img.ph');
+  if (!im) return;
+  let v = document.getElementById('phview');
+  if (!v) {
+    v = document.createElement('div'); v.id = 'phview'; v.className = 'phview'; v.setAttribute('role', 'dialog');
+    v.innerHTML = '<img alt=""><div></div><span style="color:#ccc;font-size:.9rem">아무 곳이나 누르면 닫혀요</span>';
+    v.onclick = () => { v.hidden = true; };
+    document.body.appendChild(v);
+  }
+  v.querySelector('img').src = im.src;
+  v.querySelector('div').textContent = (im.alt || '').replace(/ 사진$/, '');
+  v.hidden = false;
+});
+
+/* ---------- 반별 출석 현황: 날짜를 골라 사진 명단으로 ---------- */
+let cvTimer = null, CVPRE = null;   // CVPRE: 첫 화면에서 미리 받아 둔 우리 반 현황
+function initClassView(r, dLabel) {
+  const CK = 'qr_att_cv_cls';
+  let saved = ''; try { saved = localStorage.getItem(CK) || ''; } catch (e) {}
+  const first = (r.homeroom || [])[0] || (r.classes || []).find(k => k === saved) || ((r.activities[0] || {}).classes || [])[0] || (r.classes || [])[0];
+  const sel = document.getElementById('cvc'), dsel = document.getElementById('cvd');
+  if (!sel || !first) { const cv = document.getElementById('cv'); if (cv) cv.innerHTML = '<div class="empty">등록된 반이 없어요.</div>'; return; }
+  sel.value = first;
+  let V = null, mode = 'absent', open = null, nopen = null;
+  const isMine = () => (r.homeroom || []).includes(sel.value);
+  const draw = () => {
+    const box = document.getElementById('cv');
+    if (!box || !V) return;
+    const clsName = V.cls.replace('-', '학년 ') + '반';
+    if (!V.dates.length) { box.innerHTML = `<div class="empty">${clsName}은 아직 외부활동 일정이 없어요.</div>`; return; }
+    const inOk = s => s.mark && !s.mark.none;
+    const pre = V.students.filter(inOk).sort((a, b) => (a.mark.time < b.mark.time ? 1 : -1));
+    const abs = V.students.filter(s => !inOk(s));
+    const notOut = pre.filter(s => !s.mark.out);   // 집결은 했는데 해산 확인 전
+    const future = V.date > V.today;
+    const actName = V.acts.map(a => a.name).join(' / ');
+    box.innerHTML = `
+      ${V.acts.map(a => `<div><strong>${esc(a.name)}</strong><div class="sub">${a.place ? '집결 ' + esc(a.place) + ' · ' : ''}인솔 ${esc(a.teacher || '-')}${V.homeroom ? ' · 담임 ' + esc(V.homeroom) : ''}</div></div>
+        ${a.notice ? `<div class="notice"><b>유의사항</b>${esc(a.notice)}</div>` : ''}`).join('')}
+      ${future ? '<div class="sub">아직 다가오지 않은 날이에요. 결석 예정 같은 특이사항을 미리 적어 둘 수 있어요. 당일이 되면 출석 상황이 여기에 나와요.</div>' : ''}
+      <div class="row" style="justify-content:space-between">
+        <div class="chips" role="group" aria-label="명단 보기">
+          <button class="chip" data-cvm="absent" aria-pressed="${mode === 'absent'}">집결 전 ${abs.length}</button>
+          <button class="chip" data-cvm="present" aria-pressed="${mode === 'present'}">집결 완료 ${pre.length}</button>
+          <button class="chip" data-cvm="notout" aria-pressed="${mode === 'notout'}">해산 전 ${notOut.length}</button>
+        </div>
+        <button class="btn" type="button" id="cvcopy">내용 복사</button>
+      </div>
+      <ul class="roster" id="cvlist"></ul>`;
+    const ul = document.getElementById('cvlist');
+    const list = mode === 'absent' ? abs : mode === 'notout' ? notOut : pre;
+    const emptyMsg = { absent: future ? '' : '모든 학생이 집결했어요.', present: '아직 집결한 학생이 없어요.', notout: pre.length ? '집결한 학생 모두 해산 확인됐어요.' : '아직 집결한 학생이 없어요.' }[mode];
+    if (!list.length) ul.innerHTML = `<li class="empty" style="display:block">${emptyMsg}</li>`;
+    const outTxt = s => s.mark && s.mark.out ? ` · 해산 ${String(s.mark.out.time).slice(0, 5)}${s.mark.out.how === 'manual' ? '(직접)' : ''}` : ' · 해산 전';
+    list.forEach(s => {
+      const li = document.createElement('li');
+      if (inOk(s)) {
+        li.innerHTML = `${photoHtml(s)}<span><span class="nm">${esc(s.name)}</span> <span class="cls">${s.num}번</span><br><span class="sub">집결 ${String(s.mark.time).slice(0, 5)}${s.mark.how === 'manual' ? '(직접)' : ''}${outTxt(s)}${s.mark.test ? ' · 테스트' : ''}</span>${noteHtml(s.note, s.id, true)}</span>
+          <span class="acts">${mode === 'notout' ? `<button class="btn" type="button" data-cvmsg="${s.id}">연락</button>` : `<span class="pill ${s.mark.how}">${s.mark.how === 'manual' ? '직접' : 'QR'}</span>`}</span>`;
+        if (mode === 'notout' && open === s.id) li.appendChild(contactPanel(s, { actName, school: V.school, signer: isMine() ? '담임' : '인솔교사', phase: '해산' }));
+      } else {
+        li.innerHTML = `${photoHtml(s)}<span><span class="nm">${esc(s.name)}</span> <span class="cls">${s.num}번</span>${noteHtml(s.note, s.id, true)}</span>
+          <span class="acts">${future ? '' : `<button class="btn" type="button" data-cvmsg="${s.id}">연락</button>`}</span>`;
+        if (open === s.id) li.appendChild(contactPanel(s, { actName, school: V.school, signer: isMine() ? '담임' : '인솔교사' }));
+      }
+      if (nopen === s.id) li.appendChild(noteEditor(s, s.note, V.date, res => {
+        if (res) V.students.forEach(x => { x.note = res[x.id] || null; });
+        nopen = null; draw();
+      }));
+      ul.appendChild(li);
+    });
+    box.querySelectorAll('[data-note]').forEach(b => b.onclick = () => { nopen = nopen === b.dataset.note ? null : b.dataset.note; draw(); });
+    box.querySelectorAll('[data-cvm]').forEach(b => b.onclick = () => { mode = b.dataset.cvm; open = null; draw(); });
+    box.querySelectorAll('[data-cvmsg]').forEach(b => b.onclick = () => { open = open === b.dataset.cvmsg ? null : b.dataset.cvmsg; draw(); });
+    document.getElementById('cvcopy').onclick = e => {
+      const b = e.currentTarget;
+      const text = `[${clsName} 출석] ${dLabel(V.date)} ${actName}\n집결 ${pre.length}/${V.students.length}명 · 해산 ${pre.length - notOut.length}/${pre.length}명` +
+        (abs.length ? `\n집결 안 함: ${abs.map(s => `${s.num}번 ${s.name}`).join(', ')}` : '\n전원 집결') +
+        (notOut.length && pre.length ? `\n해산 확인 전: ${notOut.map(s => `${s.num}번 ${s.name}`).join(', ')}` : '') + '\n\n' +
+        V.students.map(s => `${s.num}. ${s.name} ${inOk(s) ? '집결 ' + String(s.mark.time).slice(0, 5) + (s.mark.how === 'manual' ? '(직접)' : '') + (s.mark.out ? ' · 해산 ' + String(s.mark.out.time).slice(0, 5) : ' · 해산 전') : '집결 안 함'}${s.note ? ' · ' + s.note.text : ''}`).join('\n');
+      const done = () => { b.textContent = '복사됨'; setTimeout(() => { b.textContent = '내용 복사'; }, 2000); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => { b.textContent = '복사 실패'; }); else b.textContent = '복사 실패';
+    };
+  };
+  const load = async (date, quiet) => {
+    const box = document.getElementById('cv');
+    if (!box) { clearInterval(cvTimer); return; }
+    if (!quiet) box.innerHTML = '<div class="sub">불러오는 중…</div>';
+    const cls = sel.value;
+    // 명단은 사진 없이 먼저 받아 바로 보여 주고(빠름), 휴대폰에 없는 사진만 뒤이어 받음
+    await photoReady;
+    let v = null;
+    if (!date && CVPRE && CVPRE.cls === cls && Date.now() - CVPRE.t < 60000) { v = await CVPRE.p; }   // 1분 이내면 미리 받아 둔 것 사용
+    CVPRE = null;
+    try { if (!v) v = await call('teacherClassView', CODE, WHO, cls, date || '', true); }
+    catch (e) { if (!quiet) box.innerHTML = `<div class="err">${esc(errText(e))}</div>`; return; }
+    if (!document.getElementById('cv') || v.cls !== sel.value) return;
+    takePhotos(v.students);
+    const missing = v.students.some(s => s.hasPhoto && !s.photo);
+    if (missing) {
+      const want = { cls: v.cls, date: v.date };
+      call('teacherClassView', CODE, WHO, v.cls, v.date, havePhotos()).then(w => {
+        takePhotos(w.students);
+        if (!V || V.cls !== want.cls || V.date !== want.date) return;
+        V.students.forEach(s => { if (!s.photo && PHOTO_MEM[s.id]) s.photo = PHOTO_MEM[s.id].data; });
+        if (!nopen) draw();
+      }).catch(() => {});
+    }
+    if (!V || V.cls !== v.cls || V.date !== v.date) { mode = 'absent'; open = null; nopen = null; }
+    else if (quiet && nopen) return;   // 특이사항을 쓰는 중이면 자동 새로고침으로 지우지 않음
+    V = v;
+    dsel.innerHTML = v.dates.length ? v.dates.map(d => `<option value="${d}" ${d === v.date ? 'selected' : ''}>${dLabel(d)}${d === v.today ? ' · 오늘' : ''}</option>`).join('') : '<option value="">일정 없음</option>';
+    clearInterval(cvTimer); cvTimer = null;
+    if (v.date && v.date === v.today) cvTimer = setInterval(() => load(v.date, true), 30000);   // 오늘이면 30초마다 새로고침
+    draw();
+  };
+  sel.onchange = () => { try { localStorage.setItem(CK, sel.value); } catch (e) {} V = null; load(''); };
+  dsel.onchange = () => load(dsel.value);
+  document.getElementById('cvr').onclick = () => load(dsel.value);
+  load('');
+}
+
+/* ---------- 3. 출석 보드 ---------- */
+const PREFETCH = {};    // 첫 화면에서 오늘·앞으로의 명단과 사진을 미리 받아 둠 → [열기]를 누르면 바로 뜸
+function prefetchRoster(sid) {
+  if (!PREFETCH[sid]) PREFETCH[sid] = photoReady.then(() => call('teacherRoster', CODE, WHO, sid, havePhotos())).then(R => {
+    takePhotos(R.students);
+    return R;
+  }).catch(() => { delete PREFETCH[sid]; return null; });
+  return PREFETCH[sid];
+}
+async function prefetchAll(sids) { for (const s of sids) { if (CODE) await prefetchRoster(s); } }
+
+async function openActivity(id) {
+  stopTimers();
+  window.scrollTo(0, 0);   // 목록 어디서 눌렀든 출석 화면 맨 위(QR)부터 보이게
+  const t0 = Date.now();
+  app.innerHTML = `<div class="panel"><div class="boardtop"><strong>명단 불러오는 중…</strong><button class="btn" id="back0" type="button">← 목록으로</button></div>
+    <div class="loadbar"><i></i></div><div class="sub" id="ld">명단과 사진을 함께 불러와요.</div></div>`;
+  document.getElementById('back0').onclick = () => login(CODE, WHO);
+  const tk = setInterval(() => { const el = document.getElementById('ld'); if (el) el.textContent = `${Math.round((Date.now() - t0) / 1000)}초 지남 · 명단과 사진을 함께 불러와요.`; else clearInterval(tk); }, 1000);
+  try {
+    let R = await prefetchRoster(id);
+    if (!R) { await photoReady; R = await call('teacherRoster', CODE, WHO, id, havePhotos()); }
+    R = JSON.parse(JSON.stringify(R));
+    clearInterval(tk);
+    if (!document.getElementById('back0')) return;   // 그 사이 목록으로 돌아감
+    ROSTER = R;
+    takePhotos(ROSTER.students);
+    ACT = ROSTER.activity; LOG = {}; lastSeen = null; openMsg = null; listMode = 'absent';
+    SEEN = new Set(); liveId = null; qrOn = false; undoAsk = null; TOKEN = '';
+    LOGS = { 집결: {}, 해산: {} }; TOKENS = { 집결: '', 해산: '' }; BULK = false; BULKSEL = new Set(); PHASE = loadPhase();
+    if (ROSTER.msg) MSG = ROSTER.msg;
+    NOTES = ROSTER.notes || {}; noteOpen = null;
+    clsFilter = ACT.classes.length > 1 ? ACT.classes[0] : 'all';   // 2개 반 이상이면 반별로
+    renderBoard();
+    await poll(true);
+    pollTimer = setInterval(() => poll(false), 3000);
+    tickTimer = setInterval(tick, 1000);
+    keepAwake();
+    loadPhotos(ACT.sid);
+  } catch (e) {
+    clearInterval(tk);
+    app.innerHTML = `<div class="panel"><div class="err">${esc(errText(e))}</div><button class="btn" id="back0" type="button">← 목록으로</button></div>`;
+    document.getElementById('back0').onclick = () => login(CODE, WHO);
+  }
+}
+
+/* 사진을 몇 명씩 받아 오면서 진행 상황 표시 */
+async function loadPhotos(sid) {
+  const need = ROSTER.students.filter(s => s.hasPhoto && !s.photo).map(s => s.id);
+  const total = ROSTER.students.filter(s => s.hasPhoto).length;
+  const prog = () => {};   // 사진은 명단과 함께 오므로 진행 표시는 없음 (빠진 사진만 조용히 채움)
+  prog();
+  for (let i = 0; i < need.length; i += 6) {
+    if (!ACT || ACT.sid !== sid) return;   // 다른 화면으로 감
+    let got = {};
+    try { got = await call('teacherPhotos', CODE, WHO, sid, need.slice(i, i + 6)); } catch (e) { continue; }
+    if (!ACT || ACT.sid !== sid) return;
+    ROSTER.students.forEach(s => { if (got[s.id]) { s.photo = got[s.id]; PHOTO_MEM[s.id] = { ver: s.ver || '', data: got[s.id] }; PDB.put(s.id, PHOTO_MEM[s.id]); } });
+    renderRoster();
+    const live = document.getElementById('liveWho');
+    if (live && liveId) { const ns = ROSTER.students.find(s => s.id === liveId); if (ns && ns.photo && got[ns.id]) { const lp = document.getElementById('livePh'); if (lp) lp.outerHTML = photoHtml(ns, true).replace('class="ph', 'id="livePh" class="ph'); } }
+    prog();
+  }
+  prog();
+}
+
+function renderBoard() {
+  document.body.classList.toggle('ph-out', PHASE === '해산');
+  app.innerHTML = `
+  <div class="panel">
+    <div class="boardtop"><button class="btn" id="back2" type="button">← 목록으로</button><span class="sub">${esc(WHO)} 선생님</span></div>
+    <div class="top">
+      <div><div class="label">진행 중인 활동</div><h2>${esc(ACT.name)}</h2>
+        <div>${clsBadges(ACT.classes, ACT.acts)}</div><div class="sub">${ACT.place ? '집결 ' + esc(ACT.place) : ''}</div></div>
+      <div style="text-align:right"><div class="label" id="cntlbl">${PHASE}</div>
+        <div class="count"><span id="cnt">0</span><small> / ${ROSTER.students.length}명</small></div></div>
+    </div>
+    ${ACT.notice ? `<div class="notice"><b>유의사항</b>${esc(ACT.notice)}</div>` : ''}
+    <div class="phase" role="group" aria-label="확인 단계">
+      <button type="button" data-ph="집결" aria-pressed="${PHASE === '집결'}"><b>집결 체크</b><small id="ph1">0/0</small></button>
+      <button type="button" data-ph="해산" aria-pressed="${PHASE === '해산'}"><b>해산 체크</b><small id="ph2">0/0</small></button>
+    </div>
+    <div class="qroff" id="qroff">
+      <button class="btn primary qrmake" id="qrmake" type="button">${PHASE} QR 만들기</button>
+      <button class="btn primary qrmake" id="manmake" type="button">${PHASE} 수동 체크</button>
+      <div class="sub">${PHASE === '집결' ? '모였을 때' : '끝나고 집에 갈 때'} 학생들이 QR을 찍거나, [수동 체크]로 선생님이 명단에서 바로 체크해요.</div>
+    </div>
+    <div class="qrrow" id="qron" hidden>
+      <div class="qrbox" id="qr" aria-label="${PHASE} QR 코드"></div>
+      <div class="timer" style="display:flex;flex-direction:column;gap:8px">
+        <div class="label">${PHASE} QR · 학생들이 휴대폰 카메라로 찍어요</div>
+        <div><strong id="secs">-</strong>초 후 새 QR로 바뀝니다</div>
+        <div class="bar"><i id="barfill" style="width:100%"></i></div>
+        <button class="btn primary" id="bigbtn" type="button">QR 크게 보기</button>
+        <button class="btn" id="qrhide" type="button">QR 숨기기</button>
+      </div>
+    </div>
+    <div class="sub" id="conn"></div>
+    <div class="live idle" id="live" aria-live="polite">
+      <div class="ph lg noph" id="livePh" aria-hidden="true">?</div>
+      <div><div class="label">${PHASE === '집결' ? '방금 집결한 학생' : '방금 해산 확인한 학생'}</div>
+        <div class="who" id="liveWho">아직 없음</div>
+        <div class="when" id="liveWhen">사진과 얼굴을 비교하고 이름을 불러 확인하세요.</div></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="row">
+      <div class="chips" role="group" aria-label="명단 보기">
+        <button class="chip" data-list="absent">${PHASE} 전 <span id="nAbs">0</span></button>
+        <button class="chip" data-list="present">${PHASE} 완료 <span id="nPre">0</span></button>
+      </div>
+      <button class="btn" id="back">← 목록으로</button>
+    </div>
+    ${ACT.classes.length > 1 ? '<div class="clschips" id="clschips" role="group" aria-label="반 고르기"></div>' : ''}
+    <div class="bulkbar" id="bulkbar"></div>
+    <ul class="roster" id="roster"></ul>
+  </div>`;
+  document.querySelectorAll('[data-list]').forEach(b => b.onclick = () => { listMode = b.dataset.list; openMsg = null; renderRoster(); });
+  document.getElementById('back').onclick = () => login(CODE, WHO);
+  document.getElementById('back2').onclick = () => login(CODE, WHO);
+  document.getElementById('bigbtn').onclick = openBig;
+  document.getElementById('qrmake').onclick = () => setQR(true);
+  document.getElementById('qrhide').onclick = () => setQR(false);
+  document.querySelectorAll('[data-ph]').forEach(b => b.onclick = () => setPhase(b.dataset.ph));
+  document.getElementById('manmake').onclick = () => {   // 수동 체크: QR 없이 명단에서 골라 처리
+    listMode = 'absent'; BULK = true; BULKSEL = new Set(); openMsg = null; noteOpen = null;
+    renderRoster();
+    const bar = document.getElementById('bulkbar');
+    (bar && bar.innerHTML ? bar : document.getElementById('roster')).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  setQR(qrOn);
+  renderRoster();
+}
+
+/* 집결 ↔ 해산 바꾸기 */
+function setPhase(ph) {
+  if (ph === PHASE) return;
+  PHASE = ph; savePhase();
+  LOG = LOGS[PHASE]; TOKEN = TOKENS[PHASE];
+  qrOn = false; listMode = 'absent'; openMsg = null; noteOpen = null; undoAsk = null; BULK = false; BULKSEL = new Set();
+  liveId = null;
+  renderBoard();
+  window.scrollTo(0, 0);
+}
+
+async function poll(first) {
+  if (!first && document.hidden) return;   // 화면을 꺼 두거나 다른 앱을 보는 동안은 서버에 묻지 않음
+  try {
+    const st = await call('teacherStatus', CODE, WHO, ACT.sid);
+    document.getElementById('conn').textContent = '';
+    applyStatus(st, first);
+  } catch (e) {
+    const c = document.getElementById('conn');
+    if (c) c.textContent = '연결이 잠시 끊겼어요. 자동으로 다시 시도합니다.';
+  }
+}
+
+function setQR(on) {
+  qrOn = on;
+  const a = document.getElementById('qroff'), b = document.getElementById('qron');
+  if (a) a.hidden = on;
+  if (b) b.hidden = !on;
+  if (on) { drawQR(document.getElementById('qr'), 220); poll(false); }
+  else { const q = document.getElementById('qr'); if (q) q.innerHTML = ''; const ov = document.getElementById('qrbig'); if (ov) ov.hidden = true; }
+}
+
+function drawQR(box, size) {
+  if (!box || !TOKEN || !qrOn) return;
+  box.innerHTML = '';
+  // QR 안의 주소: 학생 출석 페이지(GitHub Pages)가 설정돼 있으면 그 주소로
+  const url = ((ROSTER && ROSTER.studentUrl) || APP_URL) + '?a=' + encodeURIComponent(ACT.sid) + '&t=' + encodeURIComponent(TOKEN);
+  if (window.QRCode) new QRCode(box, {text: url, width: size, height: size, correctLevel: QRCode.CorrectLevel.M});
+  else box.textContent = 'QR 도구를 불러오지 못했어요. 새로고침해 주세요.';
+}
+
+/* 여러 학생에게 한 번에 보여줄 때: 화면 가득 QR (QR이 바뀌면 같이 바뀜) */
+function openBig() {
+  let ov = document.getElementById('qrbig');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'qrbig'; ov.className = 'qrbig';
+    ov.innerHTML = `<div class="big-t"></div><div id="qrbigbox"></div><div class="big-s" id="bigsecs"></div><button type="button" id="bigclose">닫기</button>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#bigclose').onclick = () => { ov.hidden = true; };
+  }
+  ov.querySelector('.big-t').textContent = ACT.name + ' · ' + PHASE + ' QR · 휴대폰 카메라로 찍으세요';
+  ov.hidden = false;
+  drawQR(document.getElementById('qrbigbox'), 600);
+  try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+}
+
+function applyStatus(st, first) {
+  rotate = st.rotate;
+  deadline = Date.now() + st.msLeft;
+  TOKENS = { 집결: st.token, 해산: st.tokenOut || '' };
+  const curTok = TOKENS[PHASE];
+  if (curTok !== TOKEN) {
+    TOKEN = curTok;
+    drawQR(document.getElementById('qr'), 220);
+    const ov = document.getElementById('qrbig');
+    if (ov && !ov.hidden) drawQR(document.getElementById('qrbigbox'), 600);
+  }
+  const sig = l => JSON.stringify(Object.keys(l || {}).sort());
+  const changed = sig(st.log) !== sig(LOGS['집결']) || sig(st.logOut) !== sig(LOGS['해산']);
+  LOGS = { 집결: st.log || {}, 해산: st.logOut || {} };
+  const cur = LOGS[PHASE];
+  const newest = Object.entries(cur).sort((a, b) => b[1].time - a[1].time)[0];
+  LOG = cur;
+  const key = newest ? PHASE + newest[0] + '@' + newest[1].time : null;
+  if (newest && !SEEN.has(key)) {   // 새로 출석한 학생만 크게 보여 줌 (취소로 앞사람이 다시 최신이 돼도 다시 띄우지 않음)
+    lastSeen = key;
+    const s = ROSTER.students.find(x => x.id === newest[0]);
+    if (s) showLive(s, newest[1], !first);
+  }
+  ['집결', '해산'].forEach(p => Object.keys(LOGS[p]).forEach(id => SEEN.add(p + id + '@' + LOGS[p][id].time)));
+  if (liveId && !LOG[liveId]) clearLive();   // 방금 보여 준 학생의 출석을 취소함
+  // 다른 선생님(예: 담임)이 적은 특이사항도 바로 반영
+  const notesChanged = st.notes && JSON.stringify(st.notes) !== JSON.stringify(NOTES);
+  if (st.notes) NOTES = st.notes;
+  if ((changed || first || notesChanged) && !noteOpen && !(BULK && BULKSEL.size)) renderRoster();
+  tick();
+}
+
+function showLive(s, rec, flash) {
+  const live = document.getElementById('live');
+  if (!live) return;
+  live.classList.remove('idle', 'flash');
+  if (flash) { void live.offsetWidth; live.classList.add('flash'); try { navigator.vibrate && navigator.vibrate(80); } catch (e) {} }
+  const ph = document.getElementById('livePh');
+  ph.outerHTML = photoHtml(s, true).replace('class="ph', 'id="livePh" class="ph');
+  liveId = s.id;
+  document.getElementById('liveWho').textContent = s.grade + '학년 ' + s.cls + '반 ' + s.name;
+  document.getElementById('liveWhen').innerHTML = `<div>${esc(hhmm(rec.time))}</div><div>${rec.how === 'qr' ? 'QR로 ' + PHASE + ' 확인' : '선생님 직접 처리'}</div>`;
+}
+
+function clearLive() {
+  liveId = null;
+  const live = document.getElementById('live');
+  if (!live) return;
+  live.classList.remove('flash'); live.classList.add('idle');
+  const ph = document.getElementById('livePh');
+  if (ph) ph.outerHTML = '<div class="ph lg noph" id="livePh" aria-hidden="true">?</div>';
+  document.getElementById('liveWho').textContent = '아직 없음';
+  document.getElementById('liveWhen').textContent = '사진과 얼굴을 비교하고 이름을 불러 확인하세요.';
+}
+
+function tick() {
+  const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+  const s = document.getElementById('secs'), b = document.getElementById('barfill');
+  if (s) s.textContent = left;
+  if (b) b.style.width = Math.min(100, left / rotate * 100) + '%';
+  const bs = document.getElementById('bigsecs'), cnt = document.getElementById('cnt');
+  if (bs) bs.textContent = `${left}초 후 새 QR로 바뀌어요 · ${PHASE} ${cnt ? cnt.textContent : 0}/${ROSTER ? ROSTER.students.length : 0}명`;
+  if (left === 0 && ACT) poll(false);
+}
+
+function renderRoster() {
+  const ul = document.getElementById('roster');
+  if (!ul) return;
+  const all = ROSTER.students;
+  const IN = LOGS['집결'], OUT = LOGS['해산'];
+  document.getElementById('cnt').textContent = all.filter(s => LOG[s.id]).length;
+  const p1 = document.getElementById('ph1'), p2 = document.getElementById('ph2');
+  if (p1) p1.textContent = all.filter(s => IN[s.id]).length + '/' + all.length;
+  if (p2) p2.textContent = all.filter(s => OUT[s.id]).length + '/' + all.length;
+  // 2개 반 이상: 반을 눌러 따로 봄
+  const chips = document.getElementById('clschips');
+  if (chips) {
+    chips.innerHTML = ACT.classes.map(k => {
+      const m = all.filter(s => s.key === k);
+      return `<button class="clschip" type="button" data-cf="${k}" aria-pressed="${clsFilter === k}">${k.replace('-', '학년 ')}반<small>${m.filter(s => LOG[s.id]).length}/${m.length}</small></button>`;
+    }).join('') + `<button class="clschip" type="button" data-cf="all" aria-pressed="${clsFilter === 'all'}">전체<small>${all.filter(s => LOG[s.id]).length}/${all.length}</small></button>`;
+    chips.querySelectorAll('[data-cf]').forEach(b => b.onclick = () => { clsFilter = b.dataset.cf; openMsg = null; noteOpen = null; BULKSEL = new Set(); renderRoster(); });
+  }
+  const shown = clsFilter === 'all' ? all : all.filter(s => s.key === clsFilter);
+  const pre = shown.filter(s => LOG[s.id]);
+  const abs = shown.filter(s => !LOG[s.id]);
+  document.getElementById('nAbs').textContent = abs.length;
+  document.getElementById('nPre').textContent = pre.length;
+  document.querySelectorAll('[data-list]').forEach(b => b.setAttribute('aria-pressed', b.dataset.list === listMode));
+  if (listMode !== 'absent' || !abs.length) BULK = false;
+  // 수동 체크 막대
+  const bar = document.getElementById('bulkbar');
+  BULKSEL.forEach(id => { if (!abs.some(s => s.id === id)) BULKSEL.delete(id); });
+  const canAll = abs;   // [모두 선택]은 지금 보이는 학생 모두
+  if (bar) {
+    if (listMode !== 'absent' || !abs.length) bar.innerHTML = '';
+    else if (!BULK) bar.innerHTML = '';
+    else bar.innerHTML = `<div class="bulkon">
+        <div class="sub"><b>${PHASE} 수동 체크</b> · 학생을 눌러 고른 뒤 아래 버튼을 누르세요.</div>
+        <div class="bulkbtns">
+          <button class="btn" type="button" id="bk_all">모두 선택 (${canAll.length})</button>
+          <button class="btn" type="button" id="bk_none">선택 해제</button>
+          <button class="btn" type="button" id="bk_off">그만하기</button>
+        </div>
+        <button class="btn primary bulkdo" type="button" id="bk_do" ${BULKSEL.size ? '' : 'disabled'}>선택한 ${BULKSEL.size}명 ${PHASE} 처리</button>
+      </div>`;
+    const on = document.getElementById('bk_on'); if (on) on.onclick = () => { BULK = true; BULKSEL = new Set(); openMsg = null; noteOpen = null; renderRoster(); };
+    const off = document.getElementById('bk_off'); if (off) off.onclick = () => { BULK = false; BULKSEL = new Set(); renderRoster(); };
+    const al = document.getElementById('bk_all'); if (al) al.onclick = () => { canAll.forEach(s => BULKSEL.add(s.id)); renderRoster(); };
+    const no = document.getElementById('bk_none'); if (no) no.onclick = () => { BULKSEL = new Set(); renderRoster(); };
+    const go = document.getElementById('bk_do'); if (go) go.onclick = async () => {
+      const ids = [...BULKSEL];
+      if (!ids.length) return;
+      go.disabled = true; go.textContent = ids.length + '명 처리하는 중…';
+      try {
+        const st = await call('teacherMarkMany', CODE, WHO, ACT.sid, ids, PHASE);
+        BULK = false; BULKSEL = new Set();
+        ids.forEach(id => SEEN.add(PHASE + id + '@' + ((st[PHASE === '해산' ? 'logOut' : 'log'] || {})[id] || {}).time));   // 수동 체크로 처리한 학생은 크게 띄우지 않음
+        applyStatus(st, false); renderRoster();
+      } catch (e) { go.disabled = false; go.textContent = '다시 시도 · ' + errText(e); }
+    };
+  }
+  ul.innerHTML = '';
+  const list = listMode === 'absent' ? abs : pre.slice().sort((a, b) => LOG[b.id].time - LOG[a.id].time);
+  if (!list.length) {
+    ul.innerHTML = `<li class="empty" style="display:block">${listMode === 'absent' ? `모든 학생이 ${PHASE} 확인됐어요.` : `아직 ${PHASE} 확인된 학생이 없어요.`}</li>`;
+    return;
+  }
+  // 다른 단계 시각 (예: 해산 화면에서 집결 시각)
+  const other = s => {
+    if (PHASE === '해산') return IN[s.id] ? `<span class="sub">집결 ${hm(IN[s.id].time)}</span>` : '<span class="tag warn">집결 기록 없음</span>';
+    return OUT[s.id] ? `<span class="sub">해산 ${hm(OUT[s.id].time)}</span>` : '';
+  };
+  list.forEach(s => {
+    const li = document.createElement('li');
+    const note = NOTES[s.id];
+    if (listMode === 'absent' && BULK) {
+      const on = BULKSEL.has(s.id);
+      li.className = 'pick' + (on ? ' on' : '');
+      li.setAttribute('role', 'checkbox'); li.setAttribute('aria-checked', on); li.tabIndex = 0;
+      li.dataset.pick = s.id;
+      li.innerHTML = `${photoHtml(s)}<span><span class="nm">${esc(s.name)}</span> <span class="cls">${clsLabel(s)}</span> ${other(s)}${note ? `<div class="note"><b>특이사항</b>${esc(note.text)}</div>` : ''}</span>
+        <span class="acts"><span class="ck" aria-hidden="true">${on ? '✓' : ''}</span></span>`;
+    } else if (listMode === 'absent') {
+      li.innerHTML = `${photoHtml(s)}<span><span class="nm">${esc(s.name)}</span> <span class="cls">${clsLabel(s)}</span> ${other(s)}${noteHtml(note, s.id, true)}</span>
+        <span class="acts"><button class="btn" data-man="${esc(s.id)}">직접 ${PHASE}</button><button class="btn" data-msg="${esc(s.id)}">연락</button></span>`;
+      if (openMsg === s.id) li.appendChild(contactPanel(s));
+    } else {
+      const r = LOG[s.id];
+      li.innerHTML = `${photoHtml(s)}<span><span class="nm">${esc(s.name)}</span> <span class="cls">${clsLabel(s)}</span> <span class="sub">${PHASE} ${hhmm(r.time)}</span> ${other(s)}${noteHtml(note, s.id, true)}</span>
+        <span class="acts"><span class="pill ${r.how}">${r.how === 'qr' ? 'QR' : '직접'}</span><button class="btn undo${undoAsk === s.id ? ' ask' : ''}" type="button" data-undo="${esc(s.id)}">${undoAsk === s.id ? '정말 취소?' : PHASE + ' 취소'}</button></span>`;
+    }
+    if (noteOpen === s.id && !BULK) li.appendChild(noteEditor(s, note, ACT.date, res => { if (res) NOTES = res; noteOpen = null; renderRoster(); }));
+    ul.appendChild(li);
+  });
+  ul.querySelectorAll('[data-pick]').forEach(li => {
+    const flip = () => { const id = li.dataset.pick; if (BULKSEL.has(id)) BULKSEL.delete(id); else BULKSEL.add(id); renderRoster(); };
+    li.onclick = e => { if (e.target.closest('.ph')) return; flip(); };
+    li.onkeydown = e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); } };
+  });
+  ul.querySelectorAll('[data-man]').forEach(b => b.onclick = async () => {
+    b.disabled = true; b.textContent = '처리 중…';
+    try { applyStatus(await call('teacherMark', CODE, WHO, ACT.sid, b.dataset.man, PHASE), false); }
+    catch (e) { b.disabled = false; b.textContent = '다시 시도'; }
+  });
+  ul.querySelectorAll('[data-undo]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.undo;
+    if (undoAsk !== id) {   // 한 번 더 눌러야 취소 (실수 방지)
+      undoAsk = id; renderRoster();
+      setTimeout(() => { if (undoAsk === id) { undoAsk = null; renderRoster(); } }, 4000);
+      return;
+    }
+    undoAsk = null;
+    b.disabled = true; b.textContent = '취소하는 중…';
+    try { applyStatus(await call('teacherUnmark', CODE, WHO, ACT.sid, id, PHASE), false); renderRoster(); }
+    catch (e) { b.disabled = false; b.textContent = '다시 시도'; }
+  });
+  ul.querySelectorAll('[data-msg]').forEach(b => b.onclick = () => { openMsg = openMsg === b.dataset.msg ? null : b.dataset.msg; renderRoster(); });
+  ul.querySelectorAll('[data-note]').forEach(b => b.onclick = () => { noteOpen = noteOpen === b.dataset.note ? null : b.dataset.note; renderRoster(); });
+}
+
+function contactPanel(s, ctx) {
+  ctx = ctx || { actName: ACT.name, school: ROSTER.school, signer: '인솔교사', phase: PHASE };
+  let tpl = MSG || { stu: '{이름}, {활동} 집결 시간이야. 지금 어디쯤이니? 선생님한테 바로 연락 줘. - {보내는사람}',
+    par: '[{학교}] 안녕하세요, {이름} 학생 {호칭}. 오늘 {활동} 집결 시간에 {이름} 학생이 아직 확인되지 않아 연락드립니다. 확인 후 회신 부탁드립니다. - {보내는사람}' };
+  if (ctx.phase === '해산') tpl = { stu: (MSG && MSG.stuOut) || '{이름}, {활동} 해산 확인이 아직 안 됐어. 지금 어디쯤이니? 선생님한테 바로 연락 줘. - {보내는사람}',
+    par: (MSG && MSG.parOut) || '[{학교}] 안녕하세요, {이름} 학생 {호칭}. 오늘 {활동} 해산 때 {이름} 학생의 귀가 확인이 되지 않아 연락드립니다. 확인 후 회신 부탁드립니다. - {보내는사람}' };
+  const fill = (t, v) => {
+    let out = String(t).replace(/\{(이름|활동|학교|호칭|보내는사람|교사이름)\}/g, (m, k) => v[k] == null ? '' : v[k]);
+    if (!v['학교']) out = out.replace(/\[\s*\]\s*/g, '');   // 학교 이름이 없으면 빈 [ ] 지움
+    return out.trim();
+  };
+  const base = { '이름': s.name, '활동': ctx.actName || '', '학교': ctx.school || '', '교사이름': WHO };
+  const cards = [
+    { who: '학생 본인', tel: s.stuPhone,
+      text: fill(tpl.stu, Object.assign({}, base, { '호칭': '', '보내는사람': ctx.signer === '담임' ? '담임 선생님' : '인솔 선생님' })) },
+  ];
+  const parentMsg = title => fill(tpl.par, Object.assign({}, base, { '호칭': title, '보내는사람': ctx.signer }));
+  if (s.momPhone) cards.push({ who: '어머니' + (s.momName ? ' ' + s.momName : ''), tel: s.momPhone, text: parentMsg('어머님') });
+  if (s.dadPhone) cards.push({ who: '아버지' + (s.dadName ? ' ' + s.dadName : ''), tel: s.dadPhone, text: parentMsg('아버님') });
+  if (s.homePhone) cards.push({ who: '집전화', tel: s.homePhone, text: parentMsg('학부모님') });
+  if (!s.momPhone && !s.dadPhone && !s.homePhone) cards.push({ who: '학부모', tel: '', text: parentMsg('학부모님') });
+  const box = document.createElement('div');
+  box.className = 'msg';
+  cards.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'ccard';
+    const n = digits(c.tel);
+    d.innerHTML = `<div class="label">${esc(c.who)}</div>
+      <div class="tel">${c.tel ? esc(c.tel) : '번호 없음'}</div>
+      <pre>${esc(c.text)}</pre>
+      <div class="acts" style="justify-content:flex-start">
+        ${n ? `<a class="btn primary" href="sms:${n}?&body=${encodeURIComponent(c.text)}">문자 보내기</a><a class="btn" href="tel:${n}">전화</a>` : ''}
+        <button class="btn" type="button">내용 복사</button></div>`;
+    const cb = d.querySelector('button');
+    cb.onclick = () => {
+      const fallback = () => { const r = document.createRange(); r.selectNodeContents(d.querySelector('pre')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); cb.textContent = '내용을 선택했어요'; };
+      if (navigator.clipboard) navigator.clipboard.writeText(c.text).then(() => cb.textContent = '복사됨', fallback); else fallback();
+    };
+    box.appendChild(d);
+  });
+  return box;
+}
+
+function stopTimers() {
+  clearInterval(cvTimer); cvTimer = null;
+  const ov = document.getElementById('qrbig'); if (ov) ov.hidden = true; clearInterval(pollTimer); clearInterval(tickTimer); pollTimer = tickTimer = null; ACT = null; TOKEN = ''; }
+
+async function keepAwake() {
+  try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && ACT) { keepAwake(); poll(false); } });
+
+/* 시작 */
+let saved = null;
+try { saved = JSON.parse(store.get() || 'null'); } catch (e) { saved = null; }
+if (saved && saved.code && saved.name) login(saved.code, saved.name); else showLogin();
+</script>
+</body>
+</html>
