@@ -50,7 +50,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .cam .tip{position:absolute;left:0;right:0;bottom:10px;text-align:center;color:#fff;font-size:.95rem;text-shadow:0 1px 3px #000}
 .cam .off{position:absolute;inset:0;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;color:#fff;text-align:center;padding:20px}
 .result{border-radius:16px;padding:22px 18px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
-.result.ok{background:var(--ok-soft);color:var(--ok)} .result.bad{background:var(--bad-soft);color:var(--bad)} .result.info{background:var(--warn-soft);color:var(--warn)}
+.result.ok{background:var(--ok-soft);color:var(--ok)}
+.result.ok.out{background:#e4e9fb;color:#2a47b3}   /* 해산 확인은 파란 계열 */
+@media (prefers-color-scheme: dark){.result.ok.out{background:#1d2444;color:#9db0ff}} .result.bad{background:var(--bad-soft);color:var(--bad)} .result.info{background:var(--warn-soft);color:var(--warn)}
 .result strong{font-size:1.4rem}
 .result .big{font-size:1.8rem;font-weight:700;color:var(--ink)}
 .result .s{white-space:pre-line;font-size:.92rem}
@@ -270,7 +272,7 @@ async function checkIn(a, t) {
   }
   if (r.k === 'reg') { PENDING = { a, t }; showRegister('먼저 이 휴대폰을 등록해 주세요. 등록하면 바로 출석돼요.'); return; }
   app.innerHTML = `<div class="panel">
-    <div class="result ${r.k}" role="status">
+    <div class="result ${r.k}${/해산/.test(r.t || '') ? ' out' : ''}" role="status">
       <strong>${r.k === 'ok' ? '✓ ' : r.k === 'bad' ? '✕ ' : ''}${esc(r.t)}</strong>
       ${r.photo ? `<img src="${r.photo}" alt="">` : ''}
       ${r.name ? `<div class="big">${esc(r.name)}</div>` : ''}
