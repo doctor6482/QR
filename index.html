@@ -64,6 +64,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .trip .d{font-weight:700}
 .sec{font-size:.8rem;font-weight:700;letter-spacing:.05em;color:var(--muted);margin-top:4px}
 .trip .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.badges{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .badge{flex:none;font-size:.8rem;font-weight:700;padding:3px 10px;border-radius:99px;white-space:nowrap}
 .badge.ok{background:var(--ok-soft);color:var(--ok)} .badge.bad{background:var(--bad-soft);color:var(--bad)}
 .badge.warn{background:var(--warn-soft);color:var(--warn)} .badge.mute{background:var(--accent-soft);color:var(--muted)}
@@ -152,11 +153,15 @@ function showRegister(msg) {
 const val = id => document.getElementById(id).value;
 
 /* ---------- 2. 첫 화면: 카메라가 바로 켜짐 ---------- */
-/* 날짜별 출석 뱃지: 출석(시각) / 결석(지난 날) / 미출석(오늘) / 예정 */
+/* 날짜별 뱃지: 집결(시각) · 해산(시각) / 결석(지난 날) / 집결 전(오늘) / 예정 */
 function badge(t) {
-  if (t.mark) return `<span class="badge ok">출석 ${t.mark.time}${t.mark.how === 'manual' ? ' (선생님 처리)' : ''}</span>`;
+  if (t.mark || t.out) {
+    const a = t.mark ? `<span class="badge ok">집결 ${t.mark.time}</span>` : '';
+    const b = t.out ? `<span class="badge ok">해산 ${t.out.time}</span>` : (t.date === ME.today ? '<span class="badge warn">해산 전</span>' : '');
+    return `<span class="badges">${a}${b}</span>`;
+  }
   if (t.date < ME.today) return '<span class="badge bad">결석</span>';
-  if (t.date === ME.today) return '<span class="badge warn">미출석</span>';
+  if (t.date === ME.today) return '<span class="badge warn">집결 전</span>';
   return '<span class="badge mute">예정</span>';
 }
 function tripHtml(t, today) {
@@ -173,8 +178,9 @@ function showHome(note) {
   const done = past.filter(t => t.mark).length;
   app.innerHTML = `<div class="panel">${meBox()}
       ${note ? `<div class="result ok"><strong>${esc(note)}</strong></div>` : ''}
-      ${today.some(t => t.mark) ? `<div class="sub" style="color:var(--ok);font-weight:700">오늘 출석은 이미 완료됐어요 (${today.find(t => t.mark).mark.time})</div>` : ''}
-      <button class="btn scanbtn" id="scanbtn" type="button">QR 찍어 출석하기</button>
+      ${today.some(t => t.mark && t.out) ? `<div class="sub" style="color:var(--ok);font-weight:700">오늘 집결·해산 확인이 모두 끝났어요. 조심히 귀가하세요.</div>`
+        : today.some(t => t.mark) ? `<div class="sub" style="color:var(--ok);font-weight:700">오늘 집결 확인 완료 (${today.find(t => t.mark).mark.time}) · 끝나고 집에 갈 때 해산 QR도 꼭 찍어 주세요.</div>` : ''}
+      <button class="btn scanbtn" id="scanbtn" type="button">QR 찍기 (집결·해산)</button>
       <div id="camwrap" hidden style="display:flex;flex-direction:column;gap:10px">
         <div class="cam" id="cam"><video id="vid" playsinline muted autoplay></video><div class="frame"></div>
           <div class="tip" id="tip">카메라를 켜는 중…</div>
