@@ -46,6 +46,11 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 .upact{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;align-items:start;padding-left:10px;border-left:3px solid var(--accent-soft)}
 .upact .info{display:flex;flex-direction:column;gap:2px;min-width:0}
 .upact .openbtn{width:118px;text-align:center}
+.pastlist{display:flex;flex-direction:column;gap:8px;margin-top:6px;padding-top:12px;border-top:1px dashed var(--line)}
+.upact.past{opacity:.45;filter:grayscale(1);border-left-color:var(--line)}
+.upact.past .pastlbl{width:118px;text-align:center;font-size:.85rem;color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:8px 0}
+.notice.preview{background:var(--bg);border-color:var(--line)}
+.notice.preview b{color:var(--muted)}
 .upact .extra,.act .extra{grid-column:1/-1;display:flex;flex-direction:column;gap:2px;white-space:pre-line}
 .upact .sub{white-space:pre-line}
 .qrbig{position:fixed;inset:0;z-index:30;background:#fff;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;text-align:center}
@@ -231,6 +236,7 @@ const phaseKey = () => 'qr_att_phase_' + (ACT ? ACT.sid : '');
 function savePhase() { try { localStorage.setItem(phaseKey(), PHASE); } catch (e) {} }
 function loadPhase() { try { return localStorage.getItem(phaseKey()) === '해산' ? '해산' : '집결'; } catch (e) { return '집결'; } }
 let MSG = null;   // 연락 문자 틀 (관리자 설정)
+let LOGIN_INFO = { today: '', testMode: false };
 
 const app = document.getElementById('app');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -390,13 +396,14 @@ async function login(code, name) {
 /* ---------- 2. 활동 고르기 ---------- */
 function showActivities(r) {
   document.body.classList.remove('ph-out');
+  LOGIN_INFO = { today: r.today, testMode: !!r.testMode };
   stopTimers();
   const today = new Date().toLocaleDateString('ko-KR', {month:'long', day:'numeric', weekday:'short'});
   const clsText = (cs, acts) => cs.map(k => k.replace('-', '학년 ') + '반' + (acts && acts[k] ? ' · ' + acts[k] : '')).join(', ');
   app.innerHTML = `<div class="panel">
     <div class="row"><div><div class="label">${esc(r.school)}</div><h1>${esc(r.name)} 선생님</h1></div>
       <button class="btn" id="out">다른 선생님으로</button></div>
-    ${r.testMode ? `<div class="notice"><b>테스트 모드</b>날짜와 관계없이 아래 일정을 열어 QR을 시험할 수 있어요. 미리 찍은 기록은 실제 출석에 들어가지 않아요.</div>` : ''}
+    ${r.testMode ? `<div class="notice"><b>연습 기간</b>앞으로의 일정도 [열기]로 미리 열어 QR·수동 체크를 해 볼 수 있어요. 미리 해 본 기록은 실제 출석에 들어가지 않아요.</div>` : ''}
     <div class="label">${today} 오늘 인솔 · 눌러서 집결·해산 체크를 시작해요</div>
     <div class="acts-list" id="list"></div></div>
   <div class="panel">
@@ -414,7 +421,7 @@ function showActivities(r) {
   <div class="panel">
     <h2>앞으로의 인솔 일정</h2>
     <div id="upcoming"></div>
-    <div class="sub">일정이 다르거나 빠져 있으면 관리자에게 알려 주세요. 당일이 되면 위쪽에서 열 수 있어요.</div></div>`;
+    <div class="sub">일정이 다르거나 빠져 있으면 관리자에게 알려 주세요. [열기]로 화면을 미리 볼 수 있고, 당일이 되면 위쪽에도 나와요.</div></div>`;
   document.getElementById('out').onclick = () => { store.set(''); CODE = ''; WHO = ''; showLogin(); };
   const list = document.getElementById('list');
   const DOW = ['일','월','화','수','목','금','토'];
@@ -426,9 +433,13 @@ function showActivities(r) {
     ${byDate[d].map(a => `<div class="upact"><div class="info"><strong>${esc(a.name)}</strong>
       <div>${clsBadges(a.classes, a.acts)}</div>
       <span class="sub">${a.place ? '집결 ' + esc(a.place) : ''}</span></div>
-      ${r.testMode ? `<button class="btn openbtn" type="button" data-test="${esc(a.sid)}">열기 (테스트)</button>` : '<span></span>'}
+      <button class="btn openbtn" type="button" data-test="${esc(a.sid)}">열기</button>
       ${(a.others && a.others.length) || a.notice ? `<div class="extra">${a.others && a.others.length ? `<span class="sub">함께 가는 선생님 ${esc(a.others.join(', '))}</span>` : ''}${a.notice ? `<span class="sub">유의사항: ${esc(a.notice)}</span>` : ''}</div>` : ''}</div>`).join('')}</div>`).join('')
     || '<div class="empty">앞으로 맡은 일정이 없어요.</div>';
+  // 지난 일정: 불 꺼진 모양으로 (열 수 없음)
+  if ((r.past || []).length) up.insertAdjacentHTML('beforeend', `<div class="pastlist"><div class="label">지난 인솔 일정</div>${r.past.map(a => `<div class="upact past" aria-disabled="true">
+      <div class="info"><strong>${dLabel(a.date)} · ${esc(a.name)}</strong><div>${clsBadges(a.classes, a.acts)}</div></div>
+      <span class="pastlbl">지난 일정</span></div>`).join('')}</div>`);
   up.querySelectorAll('[data-test]').forEach(b => b.onclick = () => openActivity(b.dataset.test));
   // 오늘 활동 → 앞으로의 일정 순서로 명단·사진을 미리 받아 둠 (사진은 휴대폰에 저장)
   prefetchAll([...(r.activities || []), ...(r.upcoming || []).slice(0, 6)].map(a => a.sid))
@@ -655,6 +666,7 @@ function renderBoard() {
       <div style="text-align:right"><div class="label" id="cntlbl">${PHASE}</div>
         <div class="count"><span id="cnt">0</span><small> / ${ROSTER.students.length}명</small></div></div>
     </div>
+    ${ACT.date !== LOGIN_INFO.today && LOGIN_INFO.today ? `<div class="notice preview"><b>${LOGIN_INFO.testMode ? '연습' : '미리 보기'} · ${esc(ACT.date.slice(5).replace('-', '/'))} 일정</b>${LOGIN_INFO.testMode ? '오늘 일정이 아니라서 여기서 체크한 기록은 실제 출석에 들어가지 않아요.' : '오늘 일정이 아니라서 화면만 볼 수 있어요. 체크는 당일에 할 수 있어요.'}</div>` : ''}
     ${ACT.notice ? `<div class="notice"><b>유의사항</b>${esc(ACT.notice)}</div>` : ''}
     <div class="phase" role="group" aria-label="확인 단계">
       <button type="button" data-ph="집결" aria-pressed="${PHASE === '집결'}"><b>집결 체크</b><small id="ph1">0/0</small></button>
