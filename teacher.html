@@ -167,6 +167,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 .roster li.pick.on{background:var(--accent-soft, #e3f2ec)}
 .roster li.pick .ck{width:30px;height:30px;border:2px solid var(--line);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;background:var(--surface)}
 .roster li.pick.on .ck{background:var(--accent);border-color:var(--accent)}
+.acttag{display:inline-block;font-size:.75rem;padding:1px 7px;border-radius:6px;background:var(--bg);color:var(--muted);border:1px solid var(--line);vertical-align:middle}
 .tag.warn{display:inline-block;font-size:.75rem;padding:1px 6px;border-radius:6px;background:var(--warn-soft);color:var(--warn)}
 .qroff{display:flex;flex-direction:column;align-items:stretch;gap:8px;text-align:center}
 .qrmake{font-size:1.1rem;padding:14px 26px;width:100%;text-align:center}
@@ -261,7 +262,8 @@ const photoHtml = (s, big) => s.photo
   ? `<img class="ph${big ? ' lg' : ''}" src="${s.photo}" alt="${esc(s.name)} 사진">`
   : `<div class="ph noph${big ? ' lg' : ''}" aria-hidden="true">${esc(s.name.slice(-2))}</div>`;
 const digits = t => String(t || '').replace(/[^0-9+]/g, '');
-const clsBadges = (cs, acts) => cs.map(k => `<span class="clsb">${k.replace('-', '학년 ')}반${acts && acts[k] ? ` <small>${esc(acts[k])}</small>` : ''}</span>`).join('');
+/* 반 표시. 신청자만 참가하는 활동은 반 대신 '신청자 N명' */
+const clsBadges = (cs, acts, apply) => apply ? `<span class="clsb">신청자 ${apply.count}명 <small>${cs.length}개 반</small></span>` : cs.map(k => `<span class="clsb">${k.replace('-', '학년 ')}반${acts && acts[k] ? ` <small>${esc(acts[k])}</small>` : ''}</span>`).join('');
 
 /* ---------- 사진을 이 휴대폰에 저장 ----------
    한 번 받은 사진은 휴대폰(IndexedDB)에 남겨 두고, 다음부터는 서버에 "이 사진은 있어요"라고만 알려 줌
@@ -431,14 +433,14 @@ function showActivities(r) {
   (r.upcoming || []).forEach(a => (byDate[a.date] = byDate[a.date] || []).push(a));
   up.innerHTML = Object.keys(byDate).map(d => `<div class="upday"><div class="when">${dLabel(d)}</div>
     ${byDate[d].map(a => `<div class="upact"><div class="info"><strong>${esc(a.name)}</strong>
-      <div>${clsBadges(a.classes, a.acts)}</div>
+      <div>${clsBadges(a.classes, a.acts, a.apply ? a : null)}</div>
       <span class="sub">${a.place ? '집결 ' + esc(a.place) : ''}</span></div>
       <button class="btn openbtn" type="button" data-test="${esc(a.sid)}">열기</button>
       ${(a.others && a.others.length) || a.notice ? `<div class="extra">${a.others && a.others.length ? `<span class="sub">함께 가는 선생님 ${esc(a.others.join(', '))}</span>` : ''}${a.notice ? `<span class="sub">유의사항: ${esc(a.notice)}</span>` : ''}</div>` : ''}</div>`).join('')}</div>`).join('')
     || '<div class="empty">앞으로 맡은 일정이 없어요.</div>';
   // 지난 일정: 불 꺼진 모양으로 (열 수 없음)
   if ((r.past || []).length) up.insertAdjacentHTML('beforeend', `<div class="pastlist"><div class="label">지난 인솔 일정</div>${r.past.map(a => `<div class="upact past" aria-disabled="true">
-      <div class="info"><strong>${dLabel(a.date)} · ${esc(a.name)}</strong><div>${clsBadges(a.classes, a.acts)}</div></div>
+      <div class="info"><strong>${dLabel(a.date)} · ${esc(a.name)}</strong><div>${clsBadges(a.classes, a.acts, a.apply ? a : null)}</div></div>
       <span class="pastlbl">지난 일정</span></div>`).join('')}</div>`);
   up.querySelectorAll('[data-test]').forEach(b => b.onclick = () => openActivity(b.dataset.test));
   // 오늘 활동 → 앞으로의 일정 순서로 명단·사진을 미리 받아 둠 (사진은 휴대폰에 저장)
@@ -459,7 +461,7 @@ function showActivities(r) {
   r.activities.forEach(a => {
     const b = document.createElement('button');
     b.className = 'act';
-    b.innerHTML = `<span><strong>${esc(a.name)}</strong><br>${clsBadges(a.classes, a.acts)}<br><span class="sub">${a.place ? '집결 ' + esc(a.place) : ''}</span></span><span class="btn primary" style="text-align:center">열기</span>${(a.others && a.others.length) || a.notice ? `<span class="extra">${a.others && a.others.length ? `<span class="sub">함께 가는 선생님 ${esc(a.others.join(', '))}</span>` : ''}${a.notice ? `<span class="sub">유의사항: ${esc(a.notice)}</span>` : ''}</span>` : ''}`;
+    b.innerHTML = `<span><strong>${esc(a.name)}</strong><br>${clsBadges(a.classes, a.acts, a.apply ? a : null)}<br><span class="sub">${a.place ? '집결 ' + esc(a.place) : ''}</span></span><span class="btn primary" style="text-align:center">열기</span>${(a.others && a.others.length) || a.notice ? `<span class="extra">${a.others && a.others.length ? `<span class="sub">함께 가는 선생님 ${esc(a.others.join(', '))}</span>` : ''}${a.notice ? `<span class="sub">유의사항: ${esc(a.notice)}</span>` : ''}</span>` : ''}`;
     b.onclick = () => openActivity(a.sid);
     list.appendChild(b);
   });
@@ -499,12 +501,16 @@ function initClassView(r, dLabel) {
     if (!V.dates.length) { box.innerHTML = `<div class="empty">${clsName}은 아직 외부활동 일정이 없어요.</div>`; return; }
     const inOk = s => s.mark && !s.mark.none;
     const pre = V.students.filter(inOk).sort((a, b) => (a.mark.time < b.mark.time ? 1 : -1));
-    const abs = V.students.filter(s => !inOk(s));
+    const noAct = s => V.acts.length && 'act' in s && !s.act && !inOk(s);   // 그날 참가하는 활동이 없음 (신청 안 함 등)
+    const abs = V.students.filter(s => !inOk(s) && !noAct(s));
+    const none = V.students.filter(noAct);
+    const multi = V.acts.length > 1;   // 활동이 여러 개면 학생마다 어느 활동인지 표시
+    const actTag = s => multi && s.act ? ` <span class="acttag">${esc(s.act)}</span>` : '';
     const notOut = pre.filter(s => !s.mark.out);   // 집결은 했는데 해산 확인 전
     const future = V.date > V.today;
     const actName = V.acts.map(a => a.name).join(' / ');
     box.innerHTML = `
-      ${V.acts.map(a => `<div><strong>${esc(a.name)}</strong><div class="sub">${a.place ? '집결 ' + esc(a.place) + ' · ' : ''}인솔 ${esc(a.teacher || '-')}${V.homeroom ? ' · 담임 ' + esc(V.homeroom) : ''}</div></div>
+      ${V.acts.map(a => `<div><strong>${esc(a.name)}</strong>${a.apply ? ` <span class="acttag">신청자 ${V.students.filter(s => s.act === a.name).length}명</span>` : ''}<div class="sub">${a.place ? '집결 ' + esc(a.place) + ' · ' : ''}인솔 ${esc(a.teacher || '-')}${V.homeroom ? ' · 담임 ' + esc(V.homeroom) : ''}</div></div>
         ${a.notice ? `<div class="notice"><b>유의사항</b>${esc(a.notice)}</div>` : ''}`).join('')}
       ${future ? '<div class="sub">아직 다가오지 않은 날이에요. 결석 예정 같은 특이사항을 미리 적어 둘 수 있어요. 당일이 되면 출석 상황이 여기에 나와요.</div>' : ''}
       <div class="row" style="justify-content:space-between">
@@ -515,7 +521,8 @@ function initClassView(r, dLabel) {
         </div>
         <button class="btn" type="button" id="cvcopy">내용 복사</button>
       </div>
-      <ul class="roster" id="cvlist"></ul>`;
+      <ul class="roster" id="cvlist"></ul>
+      ${none.length ? `<div class="sub">참가하는 활동이 없는 학생 ${none.length}명 (신청 안 함): ${none.map(s => `${s.num}번 ${esc(s.name)}`).join(', ')}</div>` : ''}`;
     const ul = document.getElementById('cvlist');
     const list = mode === 'absent' ? abs : mode === 'notout' ? notOut : pre;
     const emptyMsg = { absent: future ? '' : '모든 학생이 집결했어요.', present: '아직 집결한 학생이 없어요.', notout: pre.length ? '집결한 학생 모두 해산 확인됐어요.' : '아직 집결한 학생이 없어요.' }[mode];
@@ -524,11 +531,11 @@ function initClassView(r, dLabel) {
     list.forEach(s => {
       const li = document.createElement('li');
       if (inOk(s)) {
-        li.innerHTML = `${photoHtml(s)}<span><span class="nm">${esc(s.name)}</span> <span class="cls">${s.num}번</span><br><span class="sub">집결 ${String(s.mark.time).slice(0, 5)}${s.mark.how === 'manual' ? '(직접)' : ''}${outTxt(s)}${s.mark.test ? ' · 테스트' : ''}</span>${noteHtml(s.note, s.id, true)}</span>
+        li.innerHTML = `${photoHtml(s)}<span><span class="nm">${esc(s.name)}</span> <span class="cls">${s.num}번</span>${actTag(s)}<br><span class="sub">집결 ${String(s.mark.time).slice(0, 5)}${s.mark.how === 'manual' ? '(직접)' : ''}${outTxt(s)}${s.mark.test ? ' · 테스트' : ''}</span>${noteHtml(s.note, s.id, true)}</span>
           <span class="acts">${mode === 'notout' ? `<button class="btn" type="button" data-cvmsg="${s.id}">연락</button>` : `<span class="pill ${s.mark.how}">${s.mark.how === 'manual' ? '직접' : 'QR'}</span>`}</span>`;
         if (mode === 'notout' && open === s.id) li.appendChild(contactPanel(s, { actName, school: V.school, signer: isMine() ? '담임' : '인솔교사', phase: '해산' }));
       } else {
-        li.innerHTML = `${photoHtml(s)}<span><span class="nm">${esc(s.name)}</span> <span class="cls">${s.num}번</span>${noteHtml(s.note, s.id, true)}</span>
+        li.innerHTML = `${photoHtml(s)}<span><span class="nm">${esc(s.name)}</span> <span class="cls">${s.num}번</span>${actTag(s)}${noteHtml(s.note, s.id, true)}</span>
           <span class="acts">${future ? '' : `<button class="btn" type="button" data-cvmsg="${s.id}">연락</button>`}</span>`;
         if (open === s.id) li.appendChild(contactPanel(s, { actName, school: V.school, signer: isMine() ? '담임' : '인솔교사' }));
       }
@@ -621,7 +628,7 @@ async function openActivity(id) {
     LOGS = { 집결: {}, 해산: {} }; TOKENS = { 집결: '', 해산: '' }; BULK = false; BULKSEL = new Set(); PHASE = loadPhase();
     if (ROSTER.msg) MSG = ROSTER.msg;
     NOTES = ROSTER.notes || {}; noteOpen = null;
-    clsFilter = ACT.classes.length > 1 ? ACT.classes[0] : 'all';   // 2개 반 이상이면 반별로
+    clsFilter = ACT.classes.length > 1 && !ACT.apply ? ACT.classes[0] : 'all';   // 2개 반 이상이면 반별로 (신청자 활동은 전체부터)
     renderBoard();
     await poll(true);
     pollTimer = setInterval(() => poll(false), 3000);
@@ -662,7 +669,7 @@ function renderBoard() {
     <div class="boardtop"><button class="btn" id="back2" type="button">← 목록으로</button><span class="sub">${esc(WHO)} 선생님</span></div>
     <div class="top">
       <div><div class="label">진행 중인 활동</div><h2>${esc(ACT.name)}</h2>
-        <div>${clsBadges(ACT.classes, ACT.acts)}</div><div class="sub">${ACT.place ? '집결 ' + esc(ACT.place) : ''}</div></div>
+        <div>${clsBadges(ACT.classes, ACT.acts, ACT.apply ? { count: ROSTER.students.length } : null)}</div><div class="sub">${ACT.place ? '집결 ' + esc(ACT.place) : ''}</div></div>
       <div style="text-align:right"><div class="label" id="cntlbl">${PHASE}</div>
         <div class="count"><span id="cnt">0</span><small> / ${ROSTER.students.length}명</small></div></div>
     </div>
